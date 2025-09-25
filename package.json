@@ -1,0 +1,68 @@
+{
+  "name": "solitaire-game-collection",
+  "version": "1.0.0",
+  "description": "A desktop solitaire game collection built with Electron, React, and TypeScript",
+  "main": "dist/main.js",
+  "homepage": "./",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
+    "dev:renderer": "vite",
+    "dev:main": "tsc -p tsconfig.main.json && electron dist/main.js",
+    "build": "npm run build:renderer && npm run build:main",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p tsconfig.main.json",
+    "package": "electron-builder",
+    "test": "vitest --run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "solitaire",
+    "card-games",
+    "electron",
+    "desktop"
+  ],
+  "author": "Solitaire Game Collection",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "concurrently": "^8.2.0",
+    "electron": "^25.0.0",
+    "electron-builder": "^24.0.0",
+    "eslint": "^8.45.0",
+    "eslint-plugin-react": "^7.32.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "jsdom": "^27.0.0",
+    "typescript": "^5.1.0",
+    "vite": "^4.4.0",
+    "vitest": "^0.34.0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "build": {
+    "appId": "com.solitaire.game-collection",
+    "productName": "Solitaire Game Collection",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.games"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

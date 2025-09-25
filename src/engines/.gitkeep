@@ -1,0 +1,5 @@
+# This directory will contain game engine implementations
+# - KlondikeEngine
+# - SpiderEngine
+# - FreeCellEngine
+# - BaseGameEngine (interface)

@@ -1,0 +1,5 @@
+# This directory will contain TypeScript type definitions
+# - Card types
+# - GameState types
+# - Position types
+# - Move types
