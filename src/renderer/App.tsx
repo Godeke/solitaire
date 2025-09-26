@@ -1,4 +1,5 @@
 import React from 'react'
+import { CardDemo } from '../components'
 import './App.css'
 
 function App() {
@@ -9,9 +10,7 @@ function App() {
         <p>Welcome to your desktop solitaire games!</p>
       </header>
       <main className="app-main">
-        <div className="game-selection">
-          <p>Game selection will be implemented in future tasks.</p>
-        </div>
+        <CardDemo />
       </main>
     </div>
   )

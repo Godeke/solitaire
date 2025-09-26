@@ -1,0 +1,359 @@
+.klondike-game-board {
+  width: 100%;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f4c3a 0%, #1a6b4f 100%);
+  padding: 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+
+.game-info {
+  display: flex;
+  gap: 30px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.score, .moves {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.game-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.new-game-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.new-game-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+.new-game-btn:active {
+  transform: translateY(0);
+}
+
+.game-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  min-height: 0;
+}
+
+.top-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  height: 120px;
+}
+
+.stock-waste-area {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.foundation-area {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.tableau-area {
+  flex: 1;
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 400px;
+}
+
+/* Stock and Waste Piles */
+.stock-pile, .waste-pile {
+  width: 80px;
+  height: 110px;
+  position: relative;
+  border-radius: 8px;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-stock, .empty-waste {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.empty-stock:hover, .empty-waste:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.empty-stock-content {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: bold;
+}
+
+.empty-waste-content {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+.stock-card, .waste-card {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.stock-card:hover, .waste-card:hover {
+  transform: scale(1.05);
+}
+
+/* Foundation Piles */
+.foundation-pile {
+  width: 80px;
+  height: 110px;
+  position: relative;
+}
+
+.foundation-drop-zone {
+  width: 100%;
+  height: 100%;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.foundation-drop-zone.highlighted {
+  border-color: #4CAF50;
+  background: rgba(76, 175, 80, 0.2);
+  box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+}
+
+.foundation-drop-zone.can-drop {
+  border-color: rgba(76, 175, 80, 0.8);
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.foundation-drop-zone.drop-active {
+  border-color: #4CAF50;
+  background: rgba(76, 175, 80, 0.3);
+  transform: scale(1.05);
+}
+
+.foundation-drop-zone.drop-invalid {
+  border-color: #f44336;
+  background: rgba(244, 67, 54, 0.2);
+}
+
+.foundation-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Tableau Columns */
+.tableau-column {
+  flex: 1;
+  min-height: 400px;
+  max-width: 120px;
+  position: relative;
+}
+
+.tableau-drop-zone {
+  width: 80px;
+  min-height: 110px;
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.tableau-drop-zone.highlighted {
+  border-color: #4CAF50;
+  background: rgba(76, 175, 80, 0.2);
+  box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+}
+
+.tableau-drop-zone.can-drop {
+  border-color: rgba(76, 175, 80, 0.8);
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.tableau-drop-zone.drop-active {
+  border-color: #4CAF50;
+  background: rgba(76, 175, 80, 0.3);
+  transform: scale(1.02);
+}
+
+.tableau-drop-zone.drop-invalid {
+  border-color: #f44336;
+  background: rgba(244, 67, 54, 0.2);
+}
+
+.tableau-card {
+  width: 80px;
+  left: 0;
+  transition: all 0.3s ease;
+}
+
+.tableau-card.selected {
+  transform: scale(1.1);
+  z-index: 1000 !important;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+}
+
+/* Card Selection and Highlighting */
+.selected {
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+  transform: scale(1.05);
+}
+
+/* Move Hint */
+.move-hint {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 15px 25px;
+  border-radius: 10px;
+  font-size: 14px;
+  text-align: center;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .klondike-game-board {
+    padding: 15px;
+  }
+  
+  .tableau-area {
+    gap: 10px;
+  }
+  
+  .tableau-column {
+    max-width: 100px;
+  }
+  
+  .tableau-drop-zone, .tableau-card {
+    width: 70px;
+  }
+  
+  .stock-pile, .waste-pile, .foundation-pile {
+    width: 70px;
+    height: 95px;
+  }
+}
+
+@media (max-width: 900px) {
+  .klondike-game-board {
+    padding: 10px;
+  }
+  
+  .game-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .tableau-area {
+    gap: 8px;
+  }
+  
+  .tableau-column {
+    max-width: 80px;
+  }
+  
+  .tableau-drop-zone, .tableau-card {
+    width: 60px;
+  }
+  
+  .stock-pile, .waste-pile, .foundation-pile {
+    width: 60px;
+    height: 80px;
+  }
+  
+  .top-area {
+    flex-direction: column;
+    gap: 15px;
+    height: auto;
+  }
+  
+  .stock-waste-area, .foundation-area {
+    justify-content: center;
+  }
+}
+
+/* Animation for card movements */
+.tableau-card, .foundation-card, .stock-card, .waste-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Drop zone animations */
+.drop-zone {
+  transition: all 0.3s ease;
+}
+
+.drop-zone.empty .drop-zone-placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  text-align: center;
+  padding: 10px;
+}
+
+/* Focus styles for accessibility */
+.new-game-btn:focus,
+.stock-card:focus,
+.waste-card:focus,
+.tableau-card:focus,
+.foundation-card:focus {
+  outline: 2px solid #4CAF50;
+  outline-offset: 2px;
+}

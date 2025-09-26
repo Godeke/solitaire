@@ -1,0 +1,324 @@
+.klondike-demo {
+  width: 100%;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  padding: 20px;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.demo-header {
+  text-align: center;
+  margin-bottom: 30px;
+  color: white;
+}
+
+.demo-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.demo-stats {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px 20px;
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #4CAF50;
+}
+
+.demo-instructions {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 20px;
+  border-radius: 15px;
+  margin-bottom: 30px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.demo-instructions h3 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 1.3rem;
+}
+
+.demo-instructions ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.demo-instructions li {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  color: #555;
+}
+
+.demo-instructions li:last-child {
+  border-bottom: none;
+}
+
+.demo-instructions strong {
+  color: #2a5298;
+  font-weight: 600;
+}
+
+.game-container {
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 40px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.demo-game-board {
+  background: transparent;
+  padding: 0;
+}
+
+.victory-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(5px);
+}
+
+.victory-message {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  transform: scale(0.9);
+  animation: victoryPop 0.5s ease-out forwards;
+}
+
+@keyframes victoryPop {
+  to {
+    transform: scale(1);
+  }
+}
+
+.victory-message h2 {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.victory-message p {
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+  opacity: 0.9;
+}
+
+.victory-stats {
+  display: flex;
+  gap: 30px;
+  justify-content: center;
+  margin-bottom: 30px;
+  font-size: 1.1rem;
+}
+
+.victory-stats div {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.play-again-btn {
+  padding: 15px 30px;
+  background: white;
+  color: #4CAF50;
+  border: none;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.play-again-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.demo-features {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.demo-features h3 {
+  color: #333;
+  margin-bottom: 25px;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.feature-item {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 20px;
+  border-radius: 10px;
+  border-left: 4px solid #2a5298;
+  transition: transform 0.3s ease;
+}
+
+.feature-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.feature-item h4 {
+  color: #2a5298;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+}
+
+.feature-item p {
+  color: #555;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .demo-stats {
+    gap: 20px;
+  }
+  
+  .stat-item {
+    padding: 12px 16px;
+  }
+  
+  .victory-stats {
+    flex-direction: column;
+    gap: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .klondike-demo {
+    padding: 15px;
+  }
+  
+  .demo-header h1 {
+    font-size: 2rem;
+  }
+  
+  .demo-stats {
+    gap: 15px;
+  }
+  
+  .stat-item {
+    padding: 10px 15px;
+  }
+  
+  .stat-value {
+    font-size: 1.2rem;
+  }
+  
+  .demo-instructions {
+    padding: 15px;
+  }
+  
+  .game-container {
+    padding: 15px;
+  }
+  
+  .victory-message {
+    padding: 30px 20px;
+    margin: 20px;
+  }
+  
+  .victory-message h2 {
+    font-size: 2rem;
+  }
+  
+  .victory-stats {
+    gap: 10px;
+  }
+  
+  .victory-stats div {
+    padding: 8px 15px;
+    font-size: 1rem;
+  }
+  
+  .feature-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .demo-features {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .demo-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .demo-stats {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .stat-item {
+    width: 200px;
+  }
+  
+  .victory-message {
+    padding: 20px 15px;
+  }
+  
+  .victory-message h2 {
+    font-size: 1.5rem;
+  }
+  
+  .play-again-btn {
+    padding: 12px 25px;
+    font-size: 1rem;
+  }
+}

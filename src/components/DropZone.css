@@ -1,0 +1,169 @@
+/* DropZone Component Styles */
+
+.drop-zone {
+  min-width: 80px;
+  min-height: 112px;
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  position: relative;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drop-zone.empty {
+  border-color: #e0e0e0;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.drop-zone.can-drop {
+  border-color: #4caf50;
+  background: rgba(76, 175, 80, 0.05);
+}
+
+.drop-zone.drop-active {
+  border-color: #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+  box-shadow: 0 0 10px rgba(33, 150, 243, 0.3);
+  transform: scale(1.02);
+}
+
+.drop-zone.drop-invalid {
+  border-color: #f44336;
+  background: rgba(244, 67, 54, 0.1);
+  box-shadow: 0 0 10px rgba(244, 67, 54, 0.3);
+}
+
+/* Placeholder Styles */
+.drop-zone-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.placeholder-content {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+/* Drop Indicators */
+.drop-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(33, 150, 243, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.drop-indicator-content {
+  text-align: center;
+}
+
+.drop-invalid-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(244, 67, 54, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.drop-invalid-content {
+  text-align: center;
+}
+
+/* Animation Effects */
+.drop-zone.drop-active::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border: 2px solid #2196f3;
+  border-radius: 12px;
+  animation: pulse 1s infinite;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .drop-zone {
+    min-width: 60px;
+    min-height: 84px;
+  }
+  
+  .placeholder-content {
+    font-size: 10px;
+  }
+  
+  .drop-indicator,
+  .drop-invalid-indicator {
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+}
+
+/* Accessibility */
+.drop-zone:focus {
+  outline: 2px solid #2196f3;
+  outline-offset: 2px;
+}
+
+.drop-zone[aria-label]:hover::after {
+  content: attr(aria-label);
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1001;
+  pointer-events: none;
+}

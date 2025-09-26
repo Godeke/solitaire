@@ -1,0 +1,240 @@
+/* CardRenderer Component Styles */
+
+.card-renderer {
+  width: 80px;
+  height: 112px;
+  border-radius: 8px;
+  border: 2px solid #333;
+  background: white;
+  position: relative;
+  cursor: default;
+  user-select: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-renderer.draggable {
+  cursor: grab;
+}
+
+.card-renderer.draggable:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+.card-renderer.dragging {
+  cursor: grabbing;
+  z-index: 1000;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Card Face Styles */
+.card-face {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: white;
+  border-radius: 6px;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.card-red {
+  color: #d32f2f;
+}
+
+.card-black {
+  color: #333;
+}
+
+/* Card Corner Elements */
+.card-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.card-corner.top-left {
+  top: 4px;
+  left: 4px;
+}
+
+.card-corner.bottom-right {
+  bottom: 4px;
+  right: 4px;
+  transform: rotate(180deg);
+}
+
+.card-corner .rank {
+  font-size: 14px;
+  margin-bottom: 1px;
+}
+
+.card-corner .suit {
+  font-size: 12px;
+}
+
+/* Card Center */
+.card-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.suit-large {
+  font-size: 32px;
+  opacity: 0.3;
+}
+
+/* Card Back Styles */
+.card-back {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, #1976d2, #42a5f5);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-back-pattern {
+  width: 100%;
+  height: 100%;
+  background-image: 
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.1) 0px,
+      rgba(255, 255, 255, 0.1) 2px,
+      transparent 2px,
+      transparent 8px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.1) 0px,
+      rgba(255, 255, 255, 0.1) 2px,
+      transparent 2px,
+      transparent 8px
+    );
+}
+
+/* Drop Zone Styles */
+.card-renderer.drop-zone {
+  border: 2px dashed #ccc;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.card-renderer.drop-target-valid {
+  border-color: #4caf50;
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.card-renderer.drop-target-active {
+  border-color: #2196f3;
+  background: rgba(33, 150, 243, 0.2);
+  box-shadow: 0 0 10px rgba(33, 150, 243, 0.5);
+}
+
+.drop-zone-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.card-renderer.drop-target-active .drop-zone-indicator {
+  opacity: 1;
+}
+
+.drop-zone-content {
+  font-size: 12px;
+  font-weight: bold;
+  color: #2196f3;
+  text-align: center;
+}
+
+/* Face Down Card */
+.card-renderer.face-down .card-face {
+  display: none;
+}
+
+.card-renderer.face-up .card-back {
+  display: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .card-renderer {
+    width: 60px;
+    height: 84px;
+  }
+  
+  .card-corner .rank {
+    font-size: 10px;
+  }
+  
+  .card-corner .suit {
+    font-size: 8px;
+  }
+  
+  .suit-large {
+    font-size: 24px;
+  }
+}
+
+/* Animation States */
+.card-renderer.moving {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-renderer.invalid-move {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* Hover Effects */
+.card-renderer.draggable:hover::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #2196f3, #21cbf3);
+  border-radius: 10px;
+  z-index: -1;
+  opacity: 0.3;
+}
+
+/* Focus States for Accessibility */
+.card-renderer:focus {
+  outline: 2px solid #2196f3;
+  outline-offset: 2px;
+}
+
+.card-renderer:focus-visible {
+  outline: 2px solid #2196f3;
+  outline-offset: 2px;
+}
