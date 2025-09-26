@@ -7,86 +7,12 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* Main Menu Styles */
-.main-menu {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+/* Main Menu Container */
+.main-menu-container {
   height: 100%;
-  padding: 40px 20px;
-  text-align: center;
 }
 
-.menu-header {
-  margin-bottom: 60px;
-}
-
-.game-title {
-  font-size: 3.5rem;
-  font-weight: 700;
-  color: white;
-  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  margin: 0 0 16px 0;
-  letter-spacing: -1px;
-}
-
-.game-subtitle {
-  font-size: 1.2rem;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0;
-  font-weight: 300;
-}
-
-.game-selection {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 30px;
-  max-width: 1200px;
-  width: 100%;
-}
-
-.game-card {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  padding: 32px 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-}
-
-.game-card:not(.disabled):hover {
-  transform: translateY(-8px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
-}
-
-.game-card.disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.game-card h3 {
-  font-size: 1.8rem;
-  font-weight: 600;
-  color: #2c3e50;
-  margin: 0 0 12px 0;
-}
-
-.game-card p {
-  font-size: 1rem;
-  color: #7f8c8d;
-  margin: 0 0 24px 0;
-  line-height: 1.5;
-}
-
-.game-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.play-button,
-.continue-button,
+/* Back Button (used in game placeholder) */
 .back-button {
   padding: 12px 24px;
   border: none;
@@ -98,35 +24,6 @@
   text-decoration: none;
   display: inline-block;
   text-align: center;
-}
-
-.play-button {
-  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-  color: white;
-}
-
-.play-button:hover:not(.disabled) {
-  background: linear-gradient(135deg, #5dade2 0%, #3498db 100%);
-  transform: translateY(-2px);
-}
-
-.play-button.disabled {
-  background: #bdc3c7;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.continue-button {
-  background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
-  color: white;
-}
-
-.continue-button:hover {
-  background: linear-gradient(135deg, #58d68d 0%, #27ae60 100%);
-  transform: translateY(-2px);
-}
-
-.back-button {
   background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
   color: white;
 }

@@ -42,17 +42,66 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
     }
   }, [gameState, engine, onGameWin]);
 
+  // Helper function to log current game state
+  const logGameState = useCallback(() => {
+    console.log('🎮 CURRENT GAME STATE:');
+    gameState.tableau.forEach((column, index) => {
+      const columnCards = column.map(card => 
+        `${card.faceUp ? '' : '[FACE DOWN] '}${card.getRankName()} of ${card.getSuitName()}${card.draggable ? ' (draggable)' : ''}`
+      );
+      console.log(`  Column ${index + 1}: [${columnCards.join(', ')}]`);
+    });
+    
+    const wasteCards = gameState.waste?.map(card => 
+      `${card.getRankName()} of ${card.getSuitName()}`
+    ) || [];
+    console.log(`  Waste: [${wasteCards.join(', ')}] (top: ${wasteCards[wasteCards.length - 1] || 'empty'})`);
+    
+    console.log(`  Stock: ${gameState.stock?.length || 0} cards`);
+  }, [gameState]);
+
   const handleCardMove = useCallback((card: Card, from: Position, to: Position): boolean => {
+    console.log('\n🎯 ===== DRAG & DROP ATTEMPT =====');
+    logGameState();
+    
+    console.log('🎯 MOVE DETAILS:', {
+      card: {
+        id: card.id,
+        suit: card.suit,
+        rank: card.rank,
+        faceUp: card.faceUp,
+        draggable: card.draggable,
+        position: card.position
+      },
+      from,
+      to,
+      timestamp: new Date().toISOString()
+    });
+
     const success = engine.validateMove(from, to, card);
+    
+    console.log('✅ MOVE VALIDATION RESULT:', {
+      success,
+      card: `${card.getRankName()} of ${card.getSuitName()}`,
+      from: `${from.zone}[${from.index}]`,
+      to: `${to.zone}[${to.index}]`
+    });
+
     if (success) {
+      console.log('🚀 EXECUTING MOVE...');
       const newGameState = engine.executeMove(from, to, card);
       setGameState({ ...newGameState });
       setSelectedCard(null);
       setValidMoves([]);
+      console.log('✅ MOVE COMPLETED SUCCESSFULLY');
+      console.log('===== END MOVE =====\n');
       return true;
+    } else {
+      console.log('❌ MOVE REJECTED - Invalid according to game rules');
+      console.log('===== END MOVE =====\n');
     }
     return false;
-  }, [engine]);
+  }, [engine, logGameState]);
 
   const handleCardClick = useCallback((card: Card) => {
     // Handle stock pile clicks (deal cards)

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { KlondikeGameBoard } from './KlondikeGameBoard';
 import { GameControls } from './GameControls';
+import { MainMenu } from './MainMenu';
 import { GameStateManager } from '../utils/GameStateManager';
 import { GameState } from '../types/card';
 import { logUserInteraction, logComponentMount, logComponentUnmount, logError } from '../utils/RendererLogger';
@@ -89,6 +90,16 @@ export const GameManager: React.FC<GameManagerProps> = ({
     }
   }, []);
 
+  const handleContinueGame = useCallback((gameType: GameType) => {
+    logUserInteraction('Continue existing game', 'GameManager', { gameType });
+    
+    setCurrentGameType(gameType);
+    setAppState('game');
+    setIsGameWon(false);
+    
+    // Game state will be loaded in useEffect
+  }, []);
+
   const handleBackToMenu = useCallback(() => {
     logUserInteraction('Back to menu', 'GameManager', { 
       currentGameType,
@@ -137,68 +148,11 @@ export const GameManager: React.FC<GameManagerProps> = ({
 
   const renderMainMenu = () => {
     return (
-      <div className="main-menu" data-testid="main-menu">
-        <div className="menu-header">
-          <h1 className="game-title">Solitaire Collection</h1>
-          <p className="game-subtitle">Choose your favorite solitaire variant</p>
-        </div>
-
-        <div className="game-selection">
-          <div className="game-card" data-testid="klondike-card">
-            <h3>Klondike</h3>
-            <p>The classic solitaire game with 7 tableau columns</p>
-            <div className="game-actions">
-              <button 
-                className="play-button"
-                onClick={() => handleStartGame('klondike')}
-                data-testid="play-klondike"
-              >
-                Play Klondike
-              </button>
-              {GameStateManager.hasSavedGameState('klondike') && (
-                <button 
-                  className="continue-button"
-                  onClick={() => {
-                    setCurrentGameType('klondike');
-                    setAppState('game');
-                  }}
-                  data-testid="continue-klondike"
-                >
-                  Continue Game
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="game-card disabled" data-testid="spider-card">
-            <h3>Spider</h3>
-            <p>Build sequences in the same suit (Coming Soon)</p>
-            <div className="game-actions">
-              <button 
-                className="play-button disabled"
-                disabled
-                data-testid="play-spider"
-              >
-                Coming Soon
-              </button>
-            </div>
-          </div>
-
-          <div className="game-card disabled" data-testid="freecell-card">
-            <h3>FreeCell</h3>
-            <p>Strategic solitaire with free cells (Coming Soon)</p>
-            <div className="game-actions">
-              <button 
-                className="play-button disabled"
-                disabled
-                data-testid="play-freecell"
-              >
-                Coming Soon
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <MainMenu
+        onStartGame={handleStartGame}
+        onContinueGame={handleContinueGame}
+        className="main-menu-container"
+      />
     );
   };
 

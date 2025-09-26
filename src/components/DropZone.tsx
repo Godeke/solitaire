@@ -43,16 +43,33 @@ export const DropZone: React.FC<DropZoneProps> = ({
   const [{ isOver, canDrop, draggedCard }, drop] = useDrop({
     accept: CARD_TYPE,
     drop: (item: DragItem): DropResult => {
+      console.log('📦 DROPZONE DROP:', {
+        draggedCard: `${item.card.getRankName()} of ${item.card.getSuitName()}`,
+        from: item.from,
+        to: position,
+        hasOnCardDrop: !!onCardDrop
+      });
+      
       if (onCardDrop) {
+        console.log('📞 CALLING DropZone onCardDrop...');
         onCardDrop(item.card, item.from, position);
       }
       return { to: position };
     },
     canDrop: (item: DragItem) => {
+      let canDropResult = true;
       if (isValidDropTarget) {
-        return isValidDropTarget(item.card);
+        canDropResult = isValidDropTarget(item.card);
       }
-      return true;
+      
+      console.log('🎯 DROPZONE CAN DROP CHECK:', {
+        draggedCard: `${item.card.getRankName()} of ${item.card.getSuitName()}`,
+        dropZone: `${position.zone}[${position.index}]`,
+        hasValidator: !!isValidDropTarget,
+        canDropResult
+      });
+      
+      return canDropResult;
     },
     collect: (monitor) => ({
       isOver: monitor.isOver(),

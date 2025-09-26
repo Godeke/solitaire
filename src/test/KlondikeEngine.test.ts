@@ -402,5 +402,183 @@ describe('KlondikeEngine', () => {
       expect(newState.tableau[1][2].rank).toBe(6); // Black 6
       expect(newState.tableau[1][3].rank).toBe(5); // Red 5
     });
+
+    it('should NOT move invalid sequences - same color cards', () => {
+      // Set up an INVALID sequence: Red 7, Red 6 (same color)
+      const gameState = engine.getGameState();
+      const redSeven = new Card('hearts', 7, true);
+      const redSix = new Card('diamonds', 6, true); // Same color as red seven
+      
+      redSeven.draggable = true;
+      redSix.draggable = true;
+      
+      gameState.tableau[0] = [redSeven, redSix]; // Invalid sequence: red 7 at bottom, red 6 on top
+      
+      // Set up target with Black 7 (can accept red 6, not red 7)
+      const blackSeven = new Card('clubs', 7, true);
+      gameState.tableau[1] = [blackSeven];
+      
+      engine.setGameState(gameState);
+
+      const fromPos: Position = { zone: 'tableau', index: 0 };
+      const toPos: Position = { zone: 'tableau', index: 1 };
+
+      // Try to move the red six (top card) - should move only the single card
+      const newState = engine.executeMove(fromPos, toPos, redSix);
+
+      // Red six should move to column 1 (valid move: red 6 on black 7)
+      expect(newState.tableau[1]).toHaveLength(2); // Black 7 + Red 6
+      expect(newState.tableau[1][1].rank).toBe(6);
+      expect(newState.tableau[1][1].suit).toBe('diamonds');
+      
+      // Red seven should stay in column 0 and be flipped face up
+      expect(newState.tableau[0]).toHaveLength(1);
+      expect(newState.tableau[0][0].rank).toBe(7);
+      expect(newState.tableau[0][0].suit).toBe('hearts');
+      expect(newState.tableau[0][0].faceUp).toBe(true); // Should be face up now
+    });
+
+    it('should only move the top card when trying to move from invalid sequence', () => {
+      // Test the exact scenario from the user's game
+      const gameState = engine.getGameState();
+      const redSeven = new Card('hearts', 7, true);
+      const redSix = new Card('diamonds', 6, true);
+      
+      redSeven.draggable = true;
+      redSix.draggable = true;
+      
+      // Column 2: Red 7 at bottom, Red 6 on top (invalid sequence)
+      gameState.tableau[1] = [redSeven, redSix];
+      
+      // Column 1: Black 7 (can accept red 6)
+      const blackSeven = new Card('clubs', 7, true);
+      gameState.tableau[0] = [blackSeven];
+      
+      engine.setGameState(gameState);
+
+      const fromPos: Position = { zone: 'tableau', index: 1 };
+      const toPos: Position = { zone: 'tableau', index: 0 };
+
+      // Try to move the red six (top card) to black seven
+      const newState = engine.executeMove(fromPos, toPos, redSix);
+
+      // Red six should move successfully
+      expect(newState.tableau[0]).toHaveLength(2); // Black 7 + Red 6
+      expect(newState.tableau[0][1].rank).toBe(6);
+      expect(newState.tableau[0][1].suit).toBe('diamonds');
+      
+      // Red seven should remain in original column
+      expect(newState.tableau[1]).toHaveLength(1);
+      expect(newState.tableau[1][0].rank).toBe(7);
+      expect(newState.tableau[1][0].suit).toBe('hearts');
+      expect(newState.tableau[1][0].faceUp).toBe(true); // Should be flipped face up
+    });
+
+    it('should validate sequence moves correctly - alternating colors required', () => {
+      const gameState = engine.getGameState();
+      
+      // Test various invalid sequences
+      const testCases = [
+        {
+          name: 'Two red cards - invalid sequence',
+          cards: [new Card('hearts', 8, true), new Card('diamonds', 7, true)],
+          shouldMoveSequence: false,
+          shouldMoveAtAll: true // The move itself is valid (red 8 on black 9)
+        },
+        {
+          name: 'Two black cards - invalid sequence', 
+          cards: [new Card('clubs', 9, true), new Card('spades', 8, true)],
+          shouldMoveSequence: false,
+          shouldMoveAtAll: false // Can't move black 9 onto black 10
+        },
+        {
+          name: 'Wrong rank order - invalid sequence',
+          cards: [new Card('hearts', 6, true), new Card('spades', 8, true)],
+          shouldMoveSequence: false,
+          shouldMoveAtAll: false // Can't move hearts 6 onto clubs 7
+        },
+        {
+          name: 'Valid alternating sequence',
+          cards: [new Card('hearts', 8, true), new Card('spades', 7, true), new Card('diamonds', 6, true)],
+          shouldMoveSequence: true,
+          shouldMoveAtAll: true
+        }
+      ];
+
+      testCases.forEach((testCase, index) => {
+        // Set up tableau with test sequence
+        testCase.cards.forEach(card => card.draggable = true);
+        gameState.tableau[0] = [...testCase.cards];
+        
+        // Set up target column with appropriate card
+        let targetCard: Card;
+        if (testCase.shouldMoveAtAll) {
+          // Create a card that can accept the bottom card
+          const bottomCard = testCase.cards[0];
+          const targetRank = bottomCard.rank + 1;
+          const targetSuit = bottomCard.isRed() ? 'clubs' : 'hearts'; // Opposite color
+          targetCard = new Card(targetSuit, targetRank as any, true);
+        } else {
+          // Create a card that cannot accept the bottom card
+          targetCard = new Card('clubs', 10, true); // Black 10 - won't accept most test cards
+        }
+        
+        gameState.tableau[1] = [targetCard];
+        engine.setGameState(gameState);
+
+        const fromPos: Position = { zone: 'tableau', index: 0 };
+        const toPos: Position = { zone: 'tableau', index: 1 };
+
+        // Try to move the bottom card (should move sequence if valid)
+        const newState = engine.executeMove(fromPos, toPos, testCase.cards[0]);
+
+        if (!testCase.shouldMoveAtAll) {
+          // Invalid move - nothing should change
+          expect(newState.tableau[0]).toHaveLength(testCase.cards.length);
+          expect(newState.tableau[1]).toHaveLength(1);
+        } else if (testCase.shouldMoveSequence) {
+          // Valid sequence should move entirely
+          expect(newState.tableau[0]).toHaveLength(0);
+          expect(newState.tableau[1]).toHaveLength(1 + testCase.cards.length);
+        } else {
+          // Invalid sequence should only move the single card
+          expect(newState.tableau[0]).toHaveLength(testCase.cards.length - 1);
+          expect(newState.tableau[1]).toHaveLength(2); // Target + moved card
+        }
+      });
+    });
+
+    it('should validate individual card moves correctly', () => {
+      const gameState = engine.getGameState();
+      
+      // Set up test scenarios
+      const redSix = new Card('diamonds', 6, true);
+      const blackSeven = new Card('clubs', 7, true);
+      const redSeven = new Card('hearts', 7, true);
+      const blackEight = new Card('spades', 8, true);
+      
+      redSix.draggable = true;
+      
+      gameState.tableau[0] = [redSix]; // Source
+      gameState.tableau[1] = [blackSeven]; // Valid target (red 6 on black 7)
+      gameState.tableau[2] = [redSeven]; // Invalid target (red 6 on red 7)
+      gameState.tableau[3] = [blackEight]; // Invalid target (red 6 on black 8, wrong rank)
+      
+      engine.setGameState(gameState);
+
+      const fromPos: Position = { zone: 'tableau', index: 0 };
+      
+      // Valid move: red 6 on black 7
+      const validToPos: Position = { zone: 'tableau', index: 1 };
+      expect(engine.validateMove(fromPos, validToPos, redSix)).toBe(true);
+      
+      // Invalid move: red 6 on red 7 (same color)
+      const invalidColorPos: Position = { zone: 'tableau', index: 2 };
+      expect(engine.validateMove(fromPos, invalidColorPos, redSix)).toBe(false);
+      
+      // Invalid move: red 6 on black 8 (wrong rank)
+      const invalidRankPos: Position = { zone: 'tableau', index: 3 };
+      expect(engine.validateMove(fromPos, invalidRankPos, redSix)).toBe(false);
+    });
   });
 });

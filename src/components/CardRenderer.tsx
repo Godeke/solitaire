@@ -41,22 +41,47 @@ export const CardRenderer: React.FC<CardRendererProps> = ({
   // Drag functionality
   const [{ isDragging }, drag] = useDrag({
     type: CARD_TYPE,
-    item: (): DragItem => ({
-      type: CARD_TYPE,
-      card,
-      from: card.position
-    }),
-    canDrag: () => card.draggable && card.faceUp,
+    item: (): DragItem => {
+      const dragItem = {
+        type: CARD_TYPE,
+        card,
+        from: card.position
+      };
+      console.log('🖱️ DRAG START:', {
+        card: `${card.getRankName()} of ${card.getSuitName()}`,
+        from: card.position,
+        draggable: card.draggable,
+        faceUp: card.faceUp
+      });
+      return dragItem;
+    },
+    canDrag: () => {
+      const canDrag = card.draggable && card.faceUp;
+      console.log('🤔 CAN DRAG CHECK:', {
+        card: `${card.getRankName()} of ${card.getSuitName()}`,
+        draggable: card.draggable,
+        faceUp: card.faceUp,
+        canDrag
+      });
+      return canDrag;
+    },
     collect: (monitor) => ({
       isDragging: monitor.isDragging()
     }),
     end: (item, monitor) => {
       const dropResult = monitor.getDropResult<DropResult>();
+      console.log('🎯 DRAG END:', {
+        item: item ? `${item.card.getRankName()} of ${item.card.getSuitName()}` : 'null',
+        dropResult,
+        hasOnCardMove: !!onCardMove
+      });
+      
       if (item && dropResult && onCardMove) {
+        console.log('📞 CALLING onCardMove...');
         const success = onCardMove(item.card, item.from, dropResult.to);
+        console.log('📞 onCardMove RESULT:', success);
         if (!success) {
-          // Handle failed move - could add animation or feedback here
-          console.log('Move failed');
+          console.log('❌ Move failed in CardRenderer');
         }
       }
     }
@@ -65,12 +90,25 @@ export const CardRenderer: React.FC<CardRendererProps> = ({
   // Drop functionality
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: CARD_TYPE,
-    drop: (): DropResult => ({
-      to: card.position
-    }),
+    drop: (): DropResult => {
+      const dropResult = { to: card.position };
+      console.log('📍 DROP TARGET:', {
+        dropTarget: `${card.getRankName()} of ${card.getSuitName()}`,
+        position: card.position
+      });
+      return dropResult;
+    },
     canDrop: (item: DragItem) => {
       // Basic validation - more complex validation should be in the game engine
-      return item.card.id !== card.id && isValidDropTarget;
+      const canDropHere = item.card.id !== card.id && isValidDropTarget;
+      console.log('🎯 CAN DROP CHECK:', {
+        draggedCard: `${item.card.getRankName()} of ${item.card.getSuitName()}`,
+        dropTarget: `${card.getRankName()} of ${card.getSuitName()}`,
+        sameCard: item.card.id === card.id,
+        isValidDropTarget,
+        canDropHere
+      });
+      return canDropHere;
     },
     collect: (monitor) => ({
       isOver: monitor.isOver(),

@@ -1,5 +1,8 @@
 # Technology Stack
 
+## Build Platform
+- **Windows**: Ensure we are using Powershell Syntax and not bash or others
+
 ## Core Technologies
 
 - **Electron**: Desktop application framework
