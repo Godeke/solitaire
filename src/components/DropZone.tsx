@@ -88,11 +88,12 @@ export const DropZone: React.FC<DropZoneProps> = ({
       ref={ref}
       className={getDropZoneClasses()}
       style={style}
+      initial={{ scale: 1, backgroundColor: 'rgba(0, 0, 0, 0)' }}
       animate={{
         scale: isOver && canDrop ? 1.05 : 1,
         backgroundColor: isOver && canDrop ? 'rgba(76, 175, 80, 0.1)' : 
                         isOver && !canDrop ? 'rgba(244, 67, 54, 0.1)' : 
-                        'transparent'
+                        'rgba(0, 0, 0, 0)'
       }}
       transition={{
         type: "spring",

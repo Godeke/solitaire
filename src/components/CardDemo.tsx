@@ -40,11 +40,14 @@ export const CardDemo: React.FC = () => {
     if (to.zone === 'foundation') {
       // Update card position
       setCards(prevCards => 
-        prevCards.map(c => 
-          c.id === card.id 
-            ? { ...c, position: to }
-            : c
-        )
+        prevCards.map(c => {
+          if (c.id === card.id) {
+            const updatedCard = c.clone();
+            updatedCard.setPosition(to);
+            return updatedCard;
+          }
+          return c;
+        })
       );
       return true;
     }
@@ -60,7 +63,7 @@ export const CardDemo: React.FC = () => {
       setCards(prevCards => 
         prevCards.map(c => {
           if (c.id === card.id) {
-            const updatedCard = { ...c };
+            const updatedCard = c.clone();
             updatedCard.flip();
             updatedCard.setDraggable(true);
             return updatedCard;
