@@ -53,6 +53,9 @@ Run tests:
 npm test
 ```
 
+Note: `npm test -- --run BaseGameEngine` throws an error while 
+`npx vitest run BaseGameEngine` runs the tests expected.
+
 Run tests in watch mode:
 ```bash
 npm run test:watch

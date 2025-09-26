@@ -23,7 +23,10 @@
   - Write unit tests for card system and data models
   - _Requirements: 2.1, 3.1_
 
-- [ ] 3. Create base game engine interface and common utilities
+- [-] 3. Create base game engine interface and common utilities
+
+
+
   - Define GameEngine interface with required methods
   - Implement base game utilities for move validation and state management
   - Create game state serialization/deserialization functions
