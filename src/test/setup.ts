@@ -1,8 +1,4 @@
 // Test setup file for Vitest
-import { expect, afterEach } from 'vitest'
-import { cleanup } from '@testing-library/react'
+import { expect } from 'vitest'
 
-// Cleanup after each test case
-afterEach(() => {
-  cleanup()
-})
+// Global test setup - no React testing library needed for utility tests
