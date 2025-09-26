@@ -3,6 +3,7 @@ import { KlondikeGameBoard } from './KlondikeGameBoard';
 import { GameControls } from './GameControls';
 import { GameStateManager } from '../utils/GameStateManager';
 import { GameState } from '../types/card';
+import { logUserInteraction, logComponentMount, logComponentUnmount, logError } from '../utils/RendererLogger';
 import './GameManager.css';
 
 export type GameType = 'klondike' | 'spider' | 'freecell';
@@ -29,14 +30,29 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [moveCount, setMoveCount] = useState<number>(0);
   const [isGameWon, setIsGameWon] = useState<boolean>(false);
 
+  // Component lifecycle logging
+  useEffect(() => {
+    logComponentMount('GameManager', { initialGameType, initialState });
+    return () => logComponentUnmount('GameManager');
+  }, []);
+
   // Load saved game state on mount
   useEffect(() => {
     if (appState === 'game') {
-      const savedState = GameStateManager.loadGameState(currentGameType);
-      if (savedState) {
-        setGameState(savedState);
-        setScore(savedState.score);
-        setMoveCount(savedState.moves.length);
+      try {
+        const savedState = GameStateManager.loadGameState(currentGameType);
+        if (savedState) {
+          setGameState(savedState);
+          setScore(savedState.score);
+          setMoveCount(savedState.moves.length);
+          logUserInteraction('Loaded saved game', 'GameManager', { 
+            gameType: currentGameType,
+            score: savedState.score,
+            moves: savedState.moves.length
+          });
+        }
+      } catch (error) {
+        logError(error as Error, 'GameManager.loadGameState', { gameType: currentGameType });
       }
     }
   }, [appState, currentGameType]);
@@ -56,6 +72,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
   }, [appState, currentGameType, onStateChange]);
 
   const handleStartGame = useCallback((gameType: GameType) => {
+    logUserInteraction('Start new game', 'GameManager', { gameType });
+    
     setCurrentGameType(gameType);
     setAppState('game');
     setGameKey(prev => prev + 1); // Force new game
@@ -64,14 +82,25 @@ export const GameManager: React.FC<GameManagerProps> = ({
     setMoveCount(0);
     
     // Clear any existing saved state for new game
-    GameStateManager.clearGameState(gameType);
+    try {
+      GameStateManager.clearGameState(gameType);
+    } catch (error) {
+      logError(error as Error, 'GameManager.clearGameState', { gameType });
+    }
   }, []);
 
   const handleBackToMenu = useCallback(() => {
+    logUserInteraction('Back to menu', 'GameManager', { 
+      currentGameType,
+      score,
+      moveCount,
+      wasGameWon: isGameWon
+    });
+    
     setAppState('menu');
     setGameState(null);
     setIsGameWon(false);
-  }, []);
+  }, [currentGameType, score, moveCount, isGameWon]);
 
   const handleNewGame = useCallback(() => {
     setGameKey(prev => prev + 1); // Force re-render with new game
@@ -84,9 +113,19 @@ export const GameManager: React.FC<GameManagerProps> = ({
   }, [currentGameType]);
 
   const handleGameWin = useCallback(() => {
+    logUserInteraction('Game won', 'GameManager', {
+      gameType: currentGameType,
+      finalScore: score,
+      totalMoves: moveCount,
+      gameState: gameState ? {
+        timeStarted: gameState.timeStarted,
+        duration: Date.now() - new Date(gameState.timeStarted).getTime()
+      } : null
+    });
+    
     setIsGameWon(true);
     // TODO: Update statistics when statistics system is implemented
-  }, []);
+  }, [currentGameType, score, moveCount, gameState]);
 
   const handleScoreChange = useCallback((newScore: number) => {
     setScore(newScore);

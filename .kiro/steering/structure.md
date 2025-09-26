@@ -56,3 +56,13 @@ scripts/            # Build and development scripts
 - Group imports: external libraries first, then internal modules
 - Prefer named imports over default imports for utilities
 - Use default exports for React components
+
+## Logging Standards
+
+- Import logging utilities from `@utils/RendererLogger` in renderer process
+- Use appropriate log levels: DEBUG for detailed tracing, INFO for significant events, WARN for recoverable issues, ERROR for failures
+- Include relevant context data in log entries (game state, user actions, performance metrics)
+- Use consistent category names: GAME, UI, STORAGE, PERF, ERROR, SYSTEM, COMPONENT
+- Log component lifecycle events (mount/unmount) for debugging
+- Log all user interactions and game state changes
+- Include error stack traces and context when logging errors

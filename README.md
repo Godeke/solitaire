@@ -81,3 +81,30 @@ assets/             # Game assets (images, sounds)
 ## Architecture
 
 The application uses a modular architecture with separate game engines for each solitaire variant, unified card rendering system, and persistent state management.
+
+## Logging
+
+The application includes comprehensive logging for debugging purposes:
+
+- **Log Files**: Timestamped log files are created in the user data directory (`logs/solitaire-YYYY-MM-DDTHH-MM-SS.log`)
+- **Log Levels**: DEBUG, INFO, WARN, ERROR with configurable filtering
+- **Categories**: Game actions, UI interactions, performance metrics, errors, and system events
+- **IPC Integration**: Renderer process logs are sent to main process via Electron IPC
+- **Console Fallback**: Development mode shows logs in console, production falls back if IPC fails
+
+### Log Categories
+
+- `GAME`: Game engine actions (moves, initialization, win conditions)
+- `UI`: User interface interactions (button clicks, navigation)
+- `STORAGE`: Game state persistence operations
+- `PERF`: Performance timing measurements
+- `ERROR`: Error conditions and stack traces
+- `SYSTEM`: Application lifecycle events
+- `COMPONENT`: React component lifecycle (mount/unmount)
+
+### Accessing Logs
+
+Log files are stored in:
+- **Windows**: `%APPDATA%/solitaire-game-collection/logs/`
+- **macOS**: `~/Library/Application Support/solitaire-game-collection/logs/`
+- **Linux**: `~/.config/solitaire-game-collection/logs/`

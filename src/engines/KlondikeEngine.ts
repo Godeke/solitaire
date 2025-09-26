@@ -7,6 +7,7 @@ import { BaseGameEngine } from './BaseGameEngine';
 import { GameState, Card, Position, Move } from '../types/card';
 import { GameEngineConfig } from '../types/game';
 import { Deck } from '../utils/Deck';
+import { logGameAction, logPerformance } from '../utils/RendererLogger';
 
 export class KlondikeEngine extends BaseGameEngine {
   private dealCount: number;
@@ -24,7 +25,10 @@ export class KlondikeEngine extends BaseGameEngine {
    * Initialize a new Klondike game with proper card distribution
    */
   initializeGame(): GameState {
+    const startTime = performance.now();
     const deck = this.createShuffledDeck();
+    
+    logGameAction('Initializing new game', 'klondike', { dealCount: this.dealCount });
     
     // Initialize empty game state
     this.gameState = {
@@ -64,6 +68,13 @@ export class KlondikeEngine extends BaseGameEngine {
     }
 
     this.updateCardPositions();
+    
+    const duration = performance.now() - startTime;
+    logPerformance('Game initialization', duration, {
+      tableauCards: this.gameState.tableau.reduce((sum, col) => sum + col.length, 0),
+      stockCards: this.gameState.stock?.length || 0
+    });
+    
     return this.getGameState();
   }
 
@@ -104,8 +115,11 @@ export class KlondikeEngine extends BaseGameEngine {
    */
   executeMove(from: Position, to: Position, card: Card): GameState {
     if (!this.validateMove(from, to, card)) {
+      logGameAction('Invalid move attempted', 'klondike', { from, to, card: card.id });
       return this.getGameState();
     }
+
+    const startTime = performance.now();
 
     // Handle special stock to waste move
     if (from.zone === 'stock' && to.zone === 'waste') {
@@ -140,6 +154,14 @@ export class KlondikeEngine extends BaseGameEngine {
 
     // Update score
     this.updateScore(move);
+
+    const duration = performance.now() - startTime;
+    logPerformance('Move execution', duration, {
+      from: move.from,
+      to: move.to,
+      cardsMovedCount: move.cards.length,
+      newScore: this.gameState.score
+    });
 
     return this.getGameState();
   }

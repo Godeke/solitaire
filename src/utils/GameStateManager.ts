@@ -4,6 +4,7 @@
 
 import { GameState, Card, Position, Move } from '../types/card';
 import { Card as CardClass } from './Card';
+import { logger, logError } from './RendererLogger';
 
 /**
  * Serializable version of GameState for storage
@@ -108,9 +109,17 @@ export class GameStateManager {
       const key = `${this.STORAGE_KEY_PREFIX}${gameState.gameType}`;
       const serialized = this.serialize(gameState);
       localStorage.setItem(key, serialized);
+      
+      logger.debug('STORAGE', 'Game state saved', {
+        gameType: gameState.gameType,
+        score: gameState.score,
+        moves: gameState.moves.length,
+        dataSize: serialized.length
+      });
+      
       return true;
     } catch (error) {
-      console.error('Failed to save game state:', error);
+      logError(error as Error, 'GameStateManager.saveGameState', { gameType: gameState.gameType });
       return false;
     }
   }
@@ -124,12 +133,21 @@ export class GameStateManager {
       const serialized = localStorage.getItem(key);
       
       if (!serialized) {
+        logger.debug('STORAGE', 'No saved game state found', { gameType });
         return null;
       }
 
-      return this.deserialize(serialized);
+      const gameState = this.deserialize(serialized);
+      logger.info('STORAGE', 'Game state loaded', {
+        gameType,
+        score: gameState.score,
+        moves: gameState.moves.length,
+        timeStarted: gameState.timeStarted
+      });
+      
+      return gameState;
     } catch (error) {
-      console.error('Failed to load game state:', error);
+      logError(error as Error, 'GameStateManager.loadGameState', { gameType });
       return null;
     }
   }

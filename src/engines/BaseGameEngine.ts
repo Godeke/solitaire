@@ -5,6 +5,7 @@
 import { GameEngine, GameEngineConfig, MoveValidationResult } from '../types/game';
 import { Card, Position, Move, GameState } from '../types/card';
 import { Deck } from '../utils/Deck';
+import { logGameAction, logError, logPerformance } from '../utils/RendererLogger';
 
 /**
  * Abstract base class providing common functionality for all game engines
@@ -23,6 +24,8 @@ export abstract class BaseGameEngine implements GameEngine {
     };
     this.moveHistory = [];
     this.gameState = this.createInitialGameState();
+    
+    logGameAction('Engine initialized', this.getGameType(), { config: this.config });
   }
 
   // Abstract methods that must be implemented by specific game engines
@@ -70,6 +73,7 @@ export abstract class BaseGameEngine implements GameEngine {
    */
   undoMove(): boolean {
     if (!this.config.enableUndo || this.moveHistory.length === 0) {
+      logGameAction('Undo failed', this.getGameType(), { reason: 'No moves to undo or undo disabled' });
       return false;
     }
 
@@ -78,15 +82,24 @@ export abstract class BaseGameEngine implements GameEngine {
       return false;
     }
 
-    // Reverse the move by moving cards back to their original position
-    this.reverseMove(lastMove);
-    
-    // Remove the move from game state moves array
-    this.gameState.moves = this.gameState.moves.filter(
-      move => move.timestamp !== lastMove.timestamp
-    );
+    try {
+      // Reverse the move by moving cards back to their original position
+      this.reverseMove(lastMove);
+      
+      // Remove the move from game state moves array
+      this.gameState.moves = this.gameState.moves.filter(
+        move => move.timestamp !== lastMove.timestamp
+      );
 
-    return true;
+      logGameAction('Move undone', this.getGameType(), { 
+        move: lastMove,
+        remainingMoves: this.moveHistory.length 
+      });
+      return true;
+    } catch (error) {
+      logError(error as Error, 'BaseGameEngine.undoMove', { move: lastMove });
+      return false;
+    }
   }
 
   /**
@@ -183,6 +196,12 @@ export abstract class BaseGameEngine implements GameEngine {
     if (this.moveHistory.length > this.config.maxUndoSteps) {
       this.moveHistory.shift();
     }
+
+    logGameAction('Move recorded', this.getGameType(), {
+      move,
+      totalMoves: this.moveHistory.length,
+      score: this.gameState.score
+    });
   }
 
   /**

@@ -1,0 +1,153 @@
+export enum LogLevel {
+  DEBUG = 0,
+  INFO = 1,
+  WARN = 2,
+  ERROR = 3
+}
+
+export interface LogEntry {
+  timestamp: string;
+  level: LogLevel;
+  category: string;
+  message: string;
+  data?: any;
+}
+
+/**
+ * Renderer process logger that sends logs to main process via IPC
+ * Falls back to console logging if IPC is not available
+ */
+export class RendererLogger {
+  private static instance: RendererLogger;
+  private logLevel: LogLevel = LogLevel.DEBUG;
+  private sessionId: string;
+
+  private constructor() {
+    this.sessionId = new Date().toISOString();
+    this.info('RENDERER', 'Renderer logger initialized');
+  }
+
+  public static getInstance(): RendererLogger {
+    if (!RendererLogger.instance) {
+      RendererLogger.instance = new RendererLogger();
+    }
+    return RendererLogger.instance;
+  }
+
+  public setLogLevel(level: LogLevel): void {
+    this.logLevel = level;
+    this.info('RENDERER', 'Log level changed', { newLevel: LogLevel[level] });
+  }
+
+  public debug(category: string, message: string, data?: any): void {
+    this.log(LogLevel.DEBUG, category, message, data);
+  }
+
+  public info(category: string, message: string, data?: any): void {
+    this.log(LogLevel.INFO, category, message, data);
+  }
+
+  public warn(category: string, message: string, data?: any): void {
+    this.log(LogLevel.WARN, category, message, data);
+  }
+
+  public error(category: string, message: string, data?: any): void {
+    this.log(LogLevel.ERROR, category, message, data);
+  }
+
+  private log(level: LogLevel, category: string, message: string, data?: any): void {
+    if (level < this.logLevel) {
+      return;
+    }
+
+    const entry: LogEntry = {
+      timestamp: new Date().toISOString(),
+      level,
+      category: category.toUpperCase(),
+      message,
+      data
+    };
+
+    // Try to send to main process via IPC
+    try {
+      if (window.electronAPI?.log) {
+        window.electronAPI.log(entry);
+      } else {
+        // Fallback to console logging
+        this.logToConsole(entry);
+      }
+    } catch (error) {
+      // Fallback to console logging
+      this.logToConsole(entry);
+    }
+  }
+
+  private logToConsole(entry: LogEntry): void {
+    const levelStr = LogLevel[entry.level];
+    const logMessage = `[${entry.timestamp}] ${levelStr} ${entry.category}: ${entry.message}`;
+    
+    switch (entry.level) {
+      case LogLevel.DEBUG:
+        console.debug(logMessage, entry.data || '');
+        break;
+      case LogLevel.INFO:
+        console.info(logMessage, entry.data || '');
+        break;
+      case LogLevel.WARN:
+        console.warn(logMessage, entry.data || '');
+        break;
+      case LogLevel.ERROR:
+        console.error(logMessage, entry.data || '');
+        break;
+    }
+  }
+}
+
+// Export singleton instance
+export const logger = RendererLogger.getInstance();
+
+// Convenience functions for common logging patterns
+export const logGameAction = (action: string, gameType: string, data?: any) => {
+  logger.info('GAME', `${gameType}: ${action}`, data);
+};
+
+export const logUserInteraction = (interaction: string, component: string, data?: any) => {
+  logger.info('UI', `${component}: ${interaction}`, data);
+};
+
+export const logError = (error: Error, context: string, data?: any) => {
+  logger.error('ERROR', `${context}: ${error.message}`, {
+    stack: error.stack,
+    ...data
+  });
+};
+
+export const logPerformance = (operation: string, duration: number, data?: any) => {
+  logger.info('PERF', `${operation} completed in ${duration}ms`, data);
+};
+
+export const logComponentMount = (componentName: string, props?: any) => {
+  logger.debug('COMPONENT', `${componentName} mounted`, props);
+};
+
+export const logComponentUnmount = (componentName: string) => {
+  logger.debug('COMPONENT', `${componentName} unmounted`);
+};
+
+// Global error handler
+window.addEventListener('error', (event) => {
+  logger.error('GLOBAL', 'Unhandled error', {
+    message: event.message,
+    filename: event.filename,
+    lineno: event.lineno,
+    colno: event.colno,
+    stack: event.error?.stack
+  });
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  logger.error('GLOBAL', 'Unhandled promise rejection', {
+    reason: event.reason,
+    stack: event.reason?.stack
+  });
+});
