@@ -53,8 +53,10 @@ Run tests:
 npm test
 ```
 
-Note: `npm test -- --run BaseGameEngine` throws an error while 
-`npx vitest run BaseGameEngine` runs the tests expected.
+Run a subset of the tests:
+```powershell
+npx vitest run <subset>
+```
 
 Run tests in watch mode:
 ```bash
