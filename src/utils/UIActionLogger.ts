@@ -50,6 +50,8 @@ interface UIActionLoggerConfig {
   };
   memory: {
     warningThresholdBytes: number;
+    preventiveFlushBytes?: number;
+    minRetainedEvents?: number;
   };
 }
 
@@ -116,7 +118,9 @@ export class UIActionLogger {
       dispatchMode: 'summary'
     },
     memory: {
-      warningThresholdBytes: 5 * 1024 * 1024 // 5 MB
+      warningThresholdBytes: 5 * 1024 * 1024, // 5 MB
+      preventiveFlushBytes: 4 * 1024 * 1024,
+      minRetainedEvents: 250
     }
   };
   private pendingDispatch: UIActionEvent[] = [];
@@ -716,6 +720,16 @@ export class UIActionLogger {
     const estimatedSize = this.estimateEventSize(event);
     this.bufferSizeBytes += estimatedSize;
 
+    const configuredPreventive = this.config.memory.preventiveFlushBytes ?? Math.floor(this.config.memory.warningThresholdBytes * 0.8);
+    const preventiveThreshold = Math.min(
+      configuredPreventive,
+      this.config.memory.warningThresholdBytes
+    );
+
+    if (preventiveThreshold > 0 && this.bufferSizeBytes > preventiveThreshold) {
+      this.reduceBufferForMemory(preventiveThreshold);
+    }
+
     if (!this.memoryWarningIssued && this.bufferSizeBytes > this.config.memory.warningThresholdBytes) {
       this.memoryWarningIssued = true;
       this.warn('UI_ACTION_LOGGER', 'UI action event buffer memory usage exceeded threshold', {
@@ -730,6 +744,61 @@ export class UIActionLogger {
       ) {
         this.enterSilentMode('memory-threshold-critical');
       }
+    }
+  }
+
+  private reduceBufferForMemory(preventiveThreshold: number): void {
+    if (this.eventBuffer.length === 0) {
+      return;
+    }
+
+    const minRetainedEvents = this.config.memory.minRetainedEvents ?? 250;
+    const targetBytes = Math.max(1, Math.floor(preventiveThreshold * 0.7));
+    let removedCount = 0;
+
+    while (this.eventBuffer.length > minRetainedEvents && this.bufferSizeBytes > targetBytes) {
+      const removedEvent = this.eventBuffer.shift();
+      if (!removedEvent) {
+        break;
+      }
+
+      const removedSize = this.estimateEventSize(removedEvent);
+      this.bufferSizeBytes = Math.max(0, this.bufferSizeBytes - removedSize);
+      this.removeFromPendingDispatch(removedEvent);
+      removedCount += 1;
+    }
+
+    if (removedCount > 0) {
+      this.droppedEventCount += removedCount;
+      this.recordIssue({
+        type: 'event-dropped',
+        timestamp: new Date().toISOString(),
+        reason: 'memory-preventive-flush',
+        context: 'event',
+        droppedCount: removedCount,
+        mode: this.operationMode
+      });
+      this.info('UI_ACTION_LOGGER', 'Event buffer trimmed to manage memory', {
+        removedEvents: removedCount,
+        remainingEvents: this.eventBuffer.length,
+        approximateBytes: this.bufferSizeBytes,
+        targetBytes
+      });
+
+      if (this.config.batching.enabled && this.pendingDispatch.length > 0) {
+        this.flushPendingEvents('memory-preventive');
+      }
+    }
+  }
+
+  private removeFromPendingDispatch(event: UIActionEvent): void {
+    if (!this.config.batching.enabled || this.pendingDispatch.length === 0) {
+      return;
+    }
+
+    const index = this.pendingDispatch.indexOf(event);
+    if (index !== -1) {
+      this.pendingDispatch.splice(index, 1);
     }
   }
 
@@ -1249,3 +1318,4 @@ export const withPerformanceLogging = <T extends any[], R>(
     }
   };
 };
+

@@ -430,6 +430,32 @@ describe('UIActionLogger', () => {
       expect(warnSpy).toHaveBeenCalled();
     });
 
+    it('trims the buffer before memory warnings trigger', () => {
+      const rendererLogger = (logger as any).logger;
+      const warnSpy = vi.spyOn(rendererLogger, 'warn');
+
+      logger.configure({
+        memory: {
+          warningThresholdBytes: 2000,
+          preventiveFlushBytes: 800,
+          minRetainedEvents: 5
+        }
+      });
+
+      for (let i = 0; i < 50; i++) {
+        logger.logCardClick('TestComponent', mockCard, { x: i, y: i });
+      }
+
+      const bufferedEvents = logger.getEventBuffer();
+      expect(bufferedEvents.length).toBeLessThan(50);
+      expect(bufferedEvents.length).toBeGreaterThan(0);
+      expect(logger.getHealthStatus().droppedEventCount).toBeGreaterThan(0);
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      const memoryStats = logger.getMemoryUsageStats();
+      expect(memoryStats.thresholdExceeded).toBe(false);
+    });
+
     it('records logging overhead metrics for operations', () => {
       logger.logCardClick('TestComponent', mockCard, { x: 0, y: 0 });
       const overhead = logger.getLoggingOverheadMetrics();
