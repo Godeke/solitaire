@@ -145,4 +145,34 @@ describe('RendererLogger', () => {
     expect(metrics.count).toBeGreaterThan(0);
     expect(metrics.totalDuration).toBeGreaterThanOrEqual(0);
   });
+
+  it('enters IPC fallback mode after repeated logging failures', () => {
+    mockElectronAPI.log.mockImplementation(() => {
+      throw new Error('IPC failure');
+    });
+
+    logger.info('TEST', 'Failure 1');
+    logger.info('TEST', 'Failure 2');
+    logger.info('TEST', 'Failure 3');
+
+    const health = logger.getHealthStatus();
+    expect(health.mode).toBe('ipc-fallback');
+    expect(health.recentIssues.some(issue => issue.type === 'ipc-fallback-activated')).toBe(true);
+    expect(consoleSpy.info).toHaveBeenCalled();
+  });
+
+  it('falls back to console logging when ipc API is unavailable', () => {
+    const originalLog = mockElectronAPI.log;
+    // @ts-expect-error - simulate missing API
+    mockElectronAPI.log = undefined;
+
+    logger.info('TEST', 'No IPC available');
+
+    const health = logger.getHealthStatus();
+    expect(health.mode).toBe('ipc-fallback');
+    expect(health.recentIssues.some(issue => issue.reason.includes('ipc'))).toBe(true);
+    expect(consoleSpy.info).toHaveBeenCalled();
+
+    mockElectronAPI.log = originalLog;
+  });
 });

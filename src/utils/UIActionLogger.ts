@@ -49,6 +49,33 @@ interface LoggingOverheadMetrics {
   maxDuration: number;
 }
 
+type UIActionLoggerMode = 'normal' | 'reduced' | 'silent';
+
+interface UIActionLoggerIssue {
+  type: 'dispatch-failure' | 'mode-changed' | 'event-dropped';
+  timestamp: string;
+  reason: string;
+  context?: 'batch' | 'event';
+  mode?: UIActionLoggerMode;
+  eventType?: UIActionEventType;
+  component?: string;
+  droppedCount?: number;
+  error?: {
+    message: string;
+    stack?: string;
+  };
+}
+
+export interface UIActionLoggerHealthStatus {
+  mode: UIActionLoggerMode;
+  dispatchFailureCount: number;
+  consecutiveDispatchFailures: number;
+  memoryWarningIssued: boolean;
+  droppedEventCount: number;
+  pendingDispatchCount: number;
+  recentIssues: UIActionLoggerIssue[];
+}
+
 /**
  * Enhanced logger for UI actions that uses the existing RendererLogger
  * Provides structured event tracking for debugging game state issues
@@ -81,6 +108,13 @@ export class UIActionLogger {
     totalDuration: 0,
     maxDuration: 0
   };
+  private operationMode: UIActionLoggerMode = 'normal';
+  private dispatchFailureCount = 0;
+  private consecutiveDispatchFailures = 0;
+  private droppedEventCount = 0;
+  private issues: UIActionLoggerIssue[] = [];
+  private readonly maxIssues = 30;
+  private readonly maxDispatchFailuresBeforeSilent = 3;
 
   private constructor() {
     this.logger = RendererLogger.getInstance();
@@ -165,15 +199,38 @@ export class UIActionLogger {
       }
     }
 
-    // Add to event buffer
-    this.eventBuffer.push(event);
-    this.trackMemoryUsage(event);
-    this.queueEventForDispatch(event);
+    let storedEvent: UIActionEvent = event;
+
+    if (this.operationMode === 'reduced') {
+      storedEvent = this.createReducedEvent(event);
+    }
+
+    if (this.operationMode === 'silent') {
+      this.droppedEventCount += 1;
+      this.recordIssue({
+        type: 'event-dropped',
+        timestamp: storedEvent.timestamp,
+        reason: 'silent-mode-active',
+        eventType: storedEvent.type,
+        component: storedEvent.component
+      });
+    } else {
+      this.eventBuffer.push(storedEvent);
+      this.trackMemoryUsage(storedEvent);
+
+      if (this.operationMode === 'reduced' && storedEvent === event) {
+        const reducedEvent = this.createReducedEvent(event);
+        this.eventBuffer[this.eventBuffer.length - 1] = reducedEvent;
+        storedEvent = reducedEvent;
+      }
+
+      this.queueEventForDispatch(storedEvent);
+    }
 
     const duration = this.getTimestamp() - loggingStart;
     this.recordLoggingOverhead(duration);
 
-    return event;
+    return storedEvent;
   }
 
   /**
@@ -481,17 +538,34 @@ export class UIActionLogger {
     this.pendingDispatch = [];
     this.clearBatchTimer();
 
-    if (this.config.batching.dispatchMode === 'summary') {
-      this.logger.info('UI_ACTION_BATCH', `Dispatching ${eventsToDispatch.length} UI events`, {
-        reason,
-        count: eventsToDispatch.length,
-        events: eventsToDispatch.map(event => ({
-          id: event.id,
-          type: event.type,
-          component: event.component,
-          performance: event.performance
-        }))
+    if (this.operationMode === 'silent') {
+      this.droppedEventCount += eventsToDispatch.length;
+      this.recordIssue({
+        type: 'event-dropped',
+        timestamp: new Date().toISOString(),
+        reason: `silent-mode-batch-${reason}`,
+        context: 'batch',
+        droppedCount: eventsToDispatch.length
       });
+      return;
+    }
+
+    if (this.config.batching.dispatchMode === 'summary') {
+      try {
+        this.logger.info('UI_ACTION_BATCH', `Dispatching ${eventsToDispatch.length} UI events`, {
+          reason,
+          count: eventsToDispatch.length,
+          events: eventsToDispatch.map(event => ({
+            id: event.id,
+            type: event.type,
+            component: event.component,
+            performance: event.performance
+          }))
+        });
+        this.resetDispatchFailures();
+      } catch (error) {
+        this.handleDispatchFailure(error, eventsToDispatch[0], 'batch');
+      }
     } else {
       eventsToDispatch.forEach(event => this.emitEvent(event));
     }
@@ -530,6 +604,18 @@ export class UIActionLogger {
     };
   }
 
+  public getHealthStatus(): UIActionLoggerHealthStatus {
+    return {
+      mode: this.operationMode,
+      dispatchFailureCount: this.dispatchFailureCount,
+      consecutiveDispatchFailures: this.consecutiveDispatchFailures,
+      memoryWarningIssued: this.memoryWarningIssued,
+      droppedEventCount: this.droppedEventCount,
+      pendingDispatchCount: this.pendingDispatch.length,
+      recentIssues: [...this.issues]
+    };
+  }
+
   /**
    * Emit a consolidated performance summary entry
    */
@@ -564,11 +650,29 @@ export class UIActionLogger {
   }
 
   private emitEvent(event: UIActionEvent): void {
-    this.info('UI_ACTION', `${event.component}: ${event.type}`, {
-      eventId: event.id,
-      data: event.data,
-      performance: event.performance
-    });
+    if (this.operationMode === 'silent') {
+      this.droppedEventCount += 1;
+      this.recordIssue({
+        type: 'event-dropped',
+        timestamp: event.timestamp,
+        reason: 'silent-mode-active',
+        context: 'event',
+        eventType: event.type,
+        component: event.component
+      });
+      return;
+    }
+
+    try {
+      this.info('UI_ACTION', `${event.component}: ${event.type}`, {
+        eventId: event.id,
+        data: event.data,
+        performance: event.performance
+      });
+      this.resetDispatchFailures();
+    } catch (error) {
+      this.handleDispatchFailure(error, event, 'event');
+    }
   }
 
   private scheduleBatchFlush(): void {
@@ -598,6 +702,14 @@ export class UIActionLogger {
         approximateBytes: this.bufferSizeBytes,
         thresholdBytes: this.config.memory.warningThresholdBytes
       });
+      if (this.operationMode === 'normal') {
+        this.enterReducedMode('memory-threshold-exceeded');
+      } else if (
+        this.operationMode === 'reduced' &&
+        this.bufferSizeBytes > this.config.memory.warningThresholdBytes * 1.5
+      ) {
+        this.enterSilentMode('memory-threshold-critical');
+      }
     }
   }
 
@@ -621,6 +733,132 @@ export class UIActionLogger {
     this.loggingOverhead.totalDuration += duration;
     if (duration > this.loggingOverhead.maxDuration) {
       this.loggingOverhead.maxDuration = duration;
+    }
+  }
+
+  private createReducedEvent(source: UIActionEvent): UIActionEvent {
+    return {
+      id: source.id,
+      timestamp: source.timestamp,
+      type: source.type,
+      component: source.component,
+      data: this.createReducedEventData(source),
+      performance: source.performance
+        ? { operationDuration: source.performance.operationDuration }
+        : undefined
+    };
+  }
+
+  private createReducedEventData(source: UIActionEvent): UIActionEventData {
+    const dataKeys = source.data ? Object.keys(source.data) : [];
+
+    return {
+      summary: `${source.component}:${source.type}`,
+      dataKeys: dataKeys.slice(0, 5),
+      note: 'Event truncated due to logging resource constraints'
+    } as UIActionEventData;
+  }
+
+  private handleDispatchFailure(error: unknown, event: UIActionEvent | undefined, context: 'batch' | 'event'): void {
+    this.dispatchFailureCount += 1;
+    this.consecutiveDispatchFailures += 1;
+
+    this.recordIssue({
+      type: 'dispatch-failure',
+      timestamp: new Date().toISOString(),
+      reason: context === 'batch' ? 'batch-dispatch-failure' : 'event-dispatch-failure',
+      context,
+      eventType: event?.type,
+      component: event?.component,
+      error: this.serializeError(error)
+    });
+
+    if (this.operationMode === 'normal') {
+      this.enterReducedMode('dispatch-failure');
+    }
+
+    if (this.consecutiveDispatchFailures >= this.maxDispatchFailuresBeforeSilent) {
+      this.enterSilentMode('persistent-dispatch-failures', error);
+    }
+  }
+
+  private resetDispatchFailures(): void {
+    this.consecutiveDispatchFailures = 0;
+  }
+
+  private enterReducedMode(reason: string): void {
+    if (this.operationMode !== 'normal') {
+      return;
+    }
+
+    this.operationMode = 'reduced';
+    this.recordIssue({
+      type: 'mode-changed',
+      timestamp: new Date().toISOString(),
+      reason,
+      mode: 'reduced'
+    });
+
+    try {
+      this.warn('UI_ACTION_LOGGER', 'Entering reduced logging mode', { reason });
+    } catch {
+      console.warn('UI_ACTION_LOGGER reduced logging mode', reason);
+    }
+  }
+
+  private enterSilentMode(reason: string, error?: unknown): void {
+    if (this.operationMode === 'silent') {
+      return;
+    }
+
+    this.operationMode = 'silent';
+    this.recordIssue({
+      type: 'mode-changed',
+      timestamp: new Date().toISOString(),
+      reason,
+      mode: 'silent',
+      error: this.serializeError(error)
+    });
+
+    this.pendingDispatch = [];
+    this.clearBatchTimer();
+
+    try {
+      this.error('UI_ACTION_LOGGER', 'Entering silent logging mode due to persistent failures', {
+        reason
+      });
+    } catch {
+      console.error('UI_ACTION_LOGGER silent logging mode', reason);
+    }
+  }
+
+  private recordIssue(issue: UIActionLoggerIssue): void {
+    this.issues.push(issue);
+    if (this.issues.length > this.maxIssues) {
+      this.issues = this.issues.slice(-this.maxIssues);
+    }
+  }
+
+  private serializeError(error: unknown): { message: string; stack?: string } | undefined {
+    if (!error) {
+      return undefined;
+    }
+
+    if (error instanceof Error) {
+      return {
+        message: error.message,
+        stack: error.stack
+      };
+    }
+
+    if (typeof error === 'string') {
+      return { message: error };
+    }
+
+    try {
+      return { message: JSON.stringify(error) };
+    } catch {
+      return { message: 'Unknown error' };
     }
   }
 
@@ -735,6 +973,11 @@ export class UIActionLogger {
     this.clearBatchTimer();
     this.bufferSizeBytes = 0;
     this.memoryWarningIssued = false;
+    this.operationMode = 'normal';
+    this.dispatchFailureCount = 0;
+    this.consecutiveDispatchFailures = 0;
+    this.droppedEventCount = 0;
+    this.issues = [];
     this.loggingOverhead = {
       eventCount: 0,
       totalDuration: 0,

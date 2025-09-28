@@ -534,6 +534,52 @@ describe('UIActionLogger', () => {
     });
   });
 
+  describe('Error Handling and Fallback Modes', () => {
+    it('enters reduced mode and truncates events when memory threshold is exceeded', () => {
+      logger.configure({
+        memory: { warningThresholdBytes: 1 }
+      });
+
+      const sourcePos: Position = { zone: 'tableau', index: 0, cardIndex: 0 };
+      const targetPos: Position = { zone: 'foundation', index: 1, cardIndex: 0 };
+      const validationResult: MoveValidationResult = {
+        isValid: true,
+        reason: 'Valid foundation move',
+        validationTime: 3
+      };
+
+      logger.logDragDrop('CardRenderer', mockCard, sourcePos, targetPos, validationResult);
+
+      const storedEvent = logger.getEventBuffer()[0];
+      const health = logger.getHealthStatus();
+
+      expect(health.mode).toBe('reduced');
+      expect(storedEvent.data.summary).toContain('CardRenderer');
+      expect(health.recentIssues.some(issue => issue.type === 'mode-changed' && issue.mode === 'reduced')).toBe(true);
+    });
+
+    it('enters silent mode after repeated dispatch failures and records dropped events', () => {
+      const rendererLogger = (logger as any).logger;
+      rendererLogger.info.mockImplementation(() => {
+        throw new Error('Dispatch failure');
+      });
+
+      logger.logCardClick('CardRenderer', mockCard, { x: 0, y: 0 });
+      logger.logCardClick('CardRenderer', mockCard, { x: 1, y: 1 });
+      logger.logCardClick('CardRenderer', mockCard, { x: 2, y: 2 });
+      logger.logCardClick('CardRenderer', mockCard, { x: 3, y: 3 });
+
+      const health = logger.getHealthStatus();
+
+      expect(health.mode).toBe('silent');
+      expect(health.droppedEventCount).toBeGreaterThan(0);
+      expect(health.recentIssues.some(issue => issue.type === 'mode-changed' && issue.mode === 'silent')).toBe(true);
+      expect(health.recentIssues.some(issue => issue.type === 'dispatch-failure')).toBe(true);
+
+      rendererLogger.info.mockReset();
+    });
+  });
+
   describe('Error Handling', () => {
     it('should handle errors during snapshot creation gracefully', () => {
       // Create a game state that will cause JSON serialization issues

@@ -19,6 +19,25 @@ interface RendererLoggerPerformanceStats {
   maxDuration: number;
 }
 
+type RendererLoggerMode = 'normal' | 'ipc-fallback';
+
+interface RendererLoggerIssue {
+  type: 'ipc-failure' | 'ipc-fallback-activated';
+  timestamp: string;
+  reason: string;
+  error?: {
+    message: string;
+    stack?: string;
+  };
+}
+
+export interface RendererLoggerHealthStatus {
+  mode: RendererLoggerMode;
+  ipcFailureCount: number;
+  consecutiveIpcFailures: number;
+  recentIssues: RendererLoggerIssue[];
+}
+
 /**
  * Renderer process logger that sends logs to main process via IPC
  * Falls back to console logging if IPC is not available
@@ -32,6 +51,12 @@ export class RendererLogger {
     totalDuration: 0,
     maxDuration: 0
   };
+  private operationMode: RendererLoggerMode = 'normal';
+  private ipcFailureCount = 0;
+  private consecutiveIpcFailures = 0;
+  private issues: RendererLoggerIssue[] = [];
+  private readonly maxIssues = 20;
+  private readonly maxConsecutiveIpcFailuresBeforeFallback = 3;
 
   private constructor() {
     this.logLevel = this.determineDefaultLogLevel();
@@ -48,15 +73,27 @@ export class RendererLogger {
 
   public setLogLevel(level: LogLevel): void {
     this.logLevel = level;
-    try {
-      const result = window.electronAPI?.setLogLevel?.(level);
-      if (result && typeof (result as Promise<void>).then === 'function') {
-        (result as Promise<void>).catch(() => {
-          /* swallow errors - console logging will provide visibility */
-        });
+    const setLogLevelFn = window.electronAPI?.setLogLevel;
+
+    if (this.operationMode !== 'ipc-fallback') {
+      if (typeof setLogLevelFn === 'function') {
+        try {
+          const result = setLogLevelFn(level);
+          if (result && typeof (result as Promise<void>).then === 'function') {
+            (result as Promise<void>)
+              .then(() => this.resetIpcFailures())
+              .catch(error => {
+                this.recordIpcFailure('set-log-level-rejection', error);
+              });
+          } else {
+            this.resetIpcFailures();
+          }
+        } catch (error) {
+          this.recordIpcFailure('set-log-level-throw', error);
+        }
+      } else {
+        this.recordIpcFailure('set-log-level-missing');
       }
-    } catch {
-      // Ignore IPC errors - renderer logging still functions locally
     }
     this.info('RENDERER', 'Log level changed', { newLevel: LogLevel[level] });
   }
@@ -77,6 +114,15 @@ export class RendererLogger {
       totalDuration,
       averageDuration: count > 0 ? totalDuration / count : 0,
       maxDuration
+    };
+  }
+
+  public getHealthStatus(): RendererLoggerHealthStatus {
+    return {
+      mode: this.operationMode,
+      ipcFailureCount: this.ipcFailureCount,
+      consecutiveIpcFailures: this.consecutiveIpcFailures,
+      recentIssues: [...this.issues]
     };
   }
 
@@ -111,19 +157,35 @@ export class RendererLogger {
       data
     };
 
+    if (this.operationMode === 'ipc-fallback') {
+      this.logToConsole(entry);
+      const durationFallback = this.getTimestamp() - start;
+      this.recordPerformance(durationFallback);
+      return;
+    }
+
     // Try to send to main process via IPC
     try {
       if (window.electronAPI?.log) {
         const result = window.electronAPI.log(entry);
         if (result && typeof (result as Promise<void>).then === 'function') {
-          (result as Promise<void>).catch(() => this.logToConsole(entry));
+          (result as Promise<void>)
+            .then(() => this.resetIpcFailures())
+            .catch(error => {
+              this.recordIpcFailure('log-rejection', error);
+              this.logToConsole(entry);
+            });
+        } else {
+          this.resetIpcFailures();
         }
       } else {
         // Fallback to console logging
+        this.recordIpcFailure('ipc-api-missing');
         this.logToConsole(entry);
       }
     } catch (error) {
       // Fallback to console logging
+      this.recordIpcFailure('log-throw', error);
       this.logToConsole(entry);
     }
 
@@ -148,6 +210,88 @@ export class RendererLogger {
       case LogLevel.ERROR:
         console.error(logMessage, entry.data || '');
         break;
+    }
+  }
+
+  private recordIpcFailure(reason: string, error?: unknown): void {
+    this.ipcFailureCount += 1;
+    this.consecutiveIpcFailures += 1;
+
+    const issue: RendererLoggerIssue = {
+      type: 'ipc-failure',
+      timestamp: new Date().toISOString(),
+      reason
+    };
+
+    const serializedError = this.serializeError(error);
+    if (serializedError) {
+      issue.error = serializedError;
+    }
+
+    this.pushIssue(issue);
+
+    if (reason === 'ipc-api-missing' || this.consecutiveIpcFailures >= this.maxConsecutiveIpcFailuresBeforeFallback) {
+      this.enterIpcFallback(reason, error);
+    }
+  }
+
+  private resetIpcFailures(): void {
+    this.consecutiveIpcFailures = 0;
+  }
+
+  private enterIpcFallback(reason: string, error?: unknown): void {
+    if (this.operationMode === 'ipc-fallback') {
+      return;
+    }
+
+    this.operationMode = 'ipc-fallback';
+    const fallbackIssue: RendererLoggerIssue = {
+      type: 'ipc-fallback-activated',
+      timestamp: new Date().toISOString(),
+      reason
+    };
+
+    const serializedError = this.serializeError(error);
+    if (serializedError) {
+      fallbackIssue.error = serializedError;
+    }
+
+    this.pushIssue(fallbackIssue);
+  }
+
+  private pushIssue(issue: RendererLoggerIssue): void {
+    this.issues.push(issue);
+    if (this.issues.length > this.maxIssues) {
+      this.issues = this.issues.slice(-this.maxIssues);
+    }
+  }
+
+  private serializeError(error?: unknown): { message: string; stack?: string } | undefined {
+    if (!error) {
+      return undefined;
+    }
+
+    if (error instanceof Error) {
+      return {
+        message: error.message,
+        stack: error.stack
+      };
+    }
+
+    if (typeof error === 'string') {
+      return {
+        message: error
+      };
+    }
+
+    try {
+      return {
+        message: JSON.stringify(error)
+      };
+    } catch {
+      return {
+        message: 'Unknown error'
+      };
     }
   }
 

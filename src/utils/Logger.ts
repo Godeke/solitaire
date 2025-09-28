@@ -46,6 +46,29 @@ interface LoggerPerformanceMetrics {
   };
 }
 
+type LoggerOperationMode = 'normal' | 'memory-constrained' | 'console-only';
+
+interface LoggerIssue {
+  type: 'file-write-failure' | 'recovery-success' | 'recovery-failed' | 'memory-fallback' | 'console-fallback';
+  timestamp: string;
+  context?: 'direct' | 'flush';
+  entryCount?: number;
+  reason?: string;
+  error?: {
+    message: string;
+    code?: string;
+    stack?: string;
+  };
+}
+
+export interface LoggerHealthStatus {
+  mode: LoggerOperationMode;
+  writeFailureCount: number;
+  memoryWarningCount: number;
+  recentIssues: LoggerIssue[];
+  logFilePath: string;
+}
+
 /**
  * Centralized logging utility for the Solitaire Game Collection
  * Logs to timestamped files for debugging purposes
@@ -59,6 +82,8 @@ export class Logger {
   private config: LoggerConfig;
   private bufferSizeBytes = 0;
   private memoryWarningIssued = false;
+  private memoryWarningCount = 0;
+  private operationMode: LoggerOperationMode = 'normal';
   private performanceStats: LoggerPerformanceMetrics = {
     logOperations: {
       count: 0,
@@ -71,6 +96,12 @@ export class Logger {
       maxDuration: 0
     }
   };
+  private writeFailureCount = 0;
+  private recoveryAttempt = 0;
+  private issues: LoggerIssue[] = [];
+  private readonly maxIssues = 20;
+  private logsDir: string;
+  private readonly maxWriteFailuresBeforeFallback = 5;
 
   private constructor() {
     this.config = this.createDefaultConfig();
@@ -87,6 +118,7 @@ export class Logger {
       fs.mkdirSync(logsDir, { recursive: true });
     }
 
+    this.logsDir = logsDir;
     this.logFilePath = path.join(logsDir, `solitaire-${timestamp}.log`);
 
     // Initialize log file with session start
@@ -213,6 +245,16 @@ export class Logger {
     };
   }
 
+  public getHealthStatus(): LoggerHealthStatus {
+    return {
+      mode: this.operationMode,
+      writeFailureCount: this.writeFailureCount,
+      memoryWarningCount: this.memoryWarningCount,
+      recentIssues: [...this.issues],
+      logFilePath: this.logFilePath
+    };
+  }
+
   public debug(category: string, message: string, data?: any): void {
     this.log(LogLevel.DEBUG, category, message, data);
   }
@@ -244,6 +286,17 @@ export class Logger {
       data
     };
 
+    if (this.operationMode === 'memory-constrained' && entry.data) {
+      entry.data = this.createMemorySafeData(entry.data);
+    }
+
+    if (this.operationMode === 'console-only') {
+      this.consoleFallback(entry);
+      const duration = this.getTimestamp() - start;
+      this.recordPerformance('log', duration);
+      return;
+    }
+
     const bufferedEntry: BufferedLogEntry = {
       entry,
       size: this.estimateEntrySize(entry)
@@ -274,7 +327,9 @@ export class Logger {
 
     const flushedDueToMemory = this.monitorMemoryUsage();
 
-    if (!flushedDueToMemory && (level === LogLevel.ERROR || this.logBuffer.length >= this.config.batching.maxBatchSize)) {
+    if (this.operationMode === 'memory-constrained') {
+      this.flush();
+    } else if (!flushedDueToMemory && (level === LogLevel.ERROR || this.logBuffer.length >= this.config.batching.maxBatchSize)) {
       this.flush();
     }
 
@@ -283,11 +338,19 @@ export class Logger {
   }
 
   private writeToFile(entry: LogEntry): void {
-    try {
-      const logLine = this.formatLogEntry(entry);
-      fs.appendFileSync(this.logFilePath, logLine + '\n', 'utf8');
-    } catch (error) {
-      console.error('Failed to write to log file:', error);
+    if (this.operationMode === 'console-only') {
+      this.consoleFallback(entry);
+      return;
+    }
+
+    const success = this.writeEntries([entry], 'direct');
+    if (!success) {
+      const bufferedEntry: BufferedLogEntry = {
+        entry,
+        size: this.estimateEntrySize(entry)
+      };
+      this.logBuffer.unshift(bufferedEntry);
+      this.bufferSizeBytes += bufferedEntry.size;
     }
   }
 
@@ -318,11 +381,13 @@ export class Logger {
     const totalSize = entries.reduce((sum, item) => sum + item.size, 0);
     this.bufferSizeBytes = Math.max(0, this.bufferSizeBytes - totalSize);
 
-    try {
-      const logLines = entries.map(({ entry }) => this.formatLogEntry(entry)).join('\n') + '\n';
-      fs.appendFileSync(this.logFilePath, logLines, 'utf8');
-    } catch (error) {
-      console.error('Failed to flush log buffer:', error);
+    if (this.operationMode === 'console-only') {
+      entries.forEach(({ entry }) => this.consoleFallback(entry));
+      return;
+    }
+
+    const success = this.writeEntries(entries.map(({ entry }) => entry), 'flush');
+    if (!success) {
       this.logBuffer.unshift(...entries);
       this.bufferSizeBytes += totalSize;
       return;
@@ -330,6 +395,8 @@ export class Logger {
 
     if (this.bufferSizeBytes <= this.config.memory.warningThresholdBytes) {
       this.memoryWarningIssued = false;
+      this.memoryWarningCount = 0;
+      this.exitMemoryConstrainedMode();
     }
 
     const duration = this.getTimestamp() - start;
@@ -349,6 +416,7 @@ export class Logger {
 
   private monitorMemoryUsage(): boolean {
     if (this.bufferSizeBytes > this.config.memory.warningThresholdBytes) {
+      this.memoryWarningCount += 1;
       if (!this.memoryWarningIssued) {
         this.memoryWarningIssued = true;
         this.writeToFile({
@@ -363,12 +431,20 @@ export class Logger {
         });
       }
 
+      if (this.memoryWarningCount >= 2 && this.operationMode === 'normal') {
+        this.enterMemoryConstrainedMode('memory-threshold-exceeded');
+      } else if (this.operationMode === 'memory-constrained' && this.memoryWarningCount >= 5) {
+        this.enterConsoleOnlyMode('memory-threshold-critical');
+      }
+
       this.flush();
       return true;
     }
 
     if (this.memoryWarningIssued && this.bufferSizeBytes <= this.config.memory.warningThresholdBytes) {
       this.memoryWarningIssued = false;
+      this.memoryWarningCount = 0;
+      this.exitMemoryConstrainedMode();
     }
 
     return false;
@@ -392,6 +468,204 @@ export class Logger {
     if (duration > stats.maxDuration) {
       stats.maxDuration = duration;
     }
+  }
+
+  private writeEntries(entries: LogEntry[], context: 'direct' | 'flush'): boolean {
+    if (entries.length === 0) {
+      return true;
+    }
+
+    if (this.operationMode === 'console-only') {
+      entries.forEach(entry => this.consoleFallback(entry));
+      return true;
+    }
+
+    try {
+      const logLines = entries.map(entry => this.formatLogEntry(entry)).join('\n') + '\n';
+      fs.appendFileSync(this.logFilePath, logLines, 'utf8');
+      this.writeFailureCount = 0;
+      return true;
+    } catch (error) {
+      return this.handleFileWriteError(error, context, entries);
+    }
+  }
+
+  private handleFileWriteError(error: unknown, context: 'direct' | 'flush', entries: LogEntry[]): boolean {
+    const serialized = this.serializeError(error);
+    const timestamp = new Date().toISOString();
+
+    this.writeFailureCount += 1;
+    this.recordIssue({
+      type: 'file-write-failure',
+      timestamp,
+      context,
+      entryCount: entries.length,
+      error: serialized
+    });
+
+    const recovered = this.tryRecoverLogFile();
+    if (recovered) {
+      return this.writeEntries(entries, context);
+    }
+
+    if (this.writeFailureCount >= this.maxWriteFailuresBeforeFallback) {
+      this.enterConsoleOnlyMode('persistent-file-write-failure');
+    }
+
+    return false;
+  }
+
+  private tryRecoverLogFile(): boolean {
+    this.recoveryAttempt += 1;
+
+    const recoveryTimestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const recoveryPath = path.join(
+      this.logsDir,
+      `solitaire-recovery-${recoveryTimestamp}-${this.recoveryAttempt}.log`
+    );
+
+    try {
+      const timestamp = new Date().toISOString();
+      const headerLine = this.formatLogEntry({
+        timestamp,
+        level: LogLevel.WARN,
+        category: 'LOGGER',
+        message: 'Log file recovered after write failure',
+        data: {
+          attempt: this.recoveryAttempt
+        }
+      });
+
+      fs.writeFileSync(recoveryPath, headerLine + '\n', 'utf8');
+      this.logFilePath = recoveryPath;
+
+      this.recordIssue({
+        type: 'recovery-success',
+        timestamp,
+        reason: 'Created new log file after failure'
+      });
+
+      return true;
+    } catch (recoveryError) {
+      this.recordIssue({
+        type: 'recovery-failed',
+        timestamp: new Date().toISOString(),
+        error: this.serializeError(recoveryError)
+      });
+      return false;
+    }
+  }
+
+  private enterConsoleOnlyMode(reason: string): void {
+    if (this.operationMode === 'console-only') {
+      return;
+    }
+
+    this.operationMode = 'console-only';
+    this.recordIssue({
+      type: 'console-fallback',
+      timestamp: new Date().toISOString(),
+      reason
+    });
+  }
+
+  private enterMemoryConstrainedMode(reason: string): void {
+    if (this.operationMode !== 'normal') {
+      return;
+    }
+
+    this.operationMode = 'memory-constrained';
+    this.recordIssue({
+      type: 'memory-fallback',
+      timestamp: new Date().toISOString(),
+      reason
+    });
+  }
+
+  private exitMemoryConstrainedMode(): void {
+    if (this.operationMode === 'memory-constrained' && this.bufferSizeBytes <= this.config.memory.warningThresholdBytes) {
+      this.operationMode = 'normal';
+    }
+  }
+
+  private createMemorySafeData(data: any): any {
+    if (data === undefined || data === null) {
+      return data;
+    }
+
+    if (typeof data === 'object') {
+      const keys = Object.keys(data);
+      return {
+        note: 'data omitted due to memory-constrained logging mode',
+        keys: keys.slice(0, 5)
+      };
+    }
+
+    if (typeof data === 'string' && data.length > 200) {
+      return `${data.slice(0, 200)}...`;
+    }
+
+    return data;
+  }
+
+  private consoleFallback(entry: LogEntry): void {
+    const levelStr = LogLevel[entry.level];
+    const logMessage = `[${entry.timestamp}] ${levelStr} ${entry.category}: ${entry.message}`;
+    const payload = entry.data ?? '';
+
+    switch (entry.level) {
+      case LogLevel.DEBUG:
+        console.debug(logMessage, payload);
+        break;
+      case LogLevel.INFO:
+        console.info(logMessage, payload);
+        break;
+      case LogLevel.WARN:
+        console.warn(logMessage, payload);
+        break;
+      case LogLevel.ERROR:
+        console.error(logMessage, payload);
+        break;
+    }
+  }
+
+  private recordIssue(issue: LoggerIssue): void {
+    this.issues.push(issue);
+    if (this.issues.length > this.maxIssues) {
+      this.issues = this.issues.slice(-this.maxIssues);
+    }
+  }
+
+  private serializeError(error: unknown): { message: string; code?: string; stack?: string } {
+    if (error instanceof Error) {
+      const serialized: { message: string; code?: string; stack?: string } = {
+        message: error.message,
+        stack: error.stack
+      };
+
+      const code = (error as any)?.code;
+      if (typeof code === 'string') {
+        serialized.code = code;
+      }
+
+      return serialized;
+    }
+
+    if (typeof error === 'object' && error !== null) {
+      try {
+        return {
+          message: JSON.stringify(error)
+        };
+      } catch {
+        return {
+          message: 'Unknown error object'
+        };
+      }
+    }
+
+    return {
+      message: String(error)
+    };
   }
 
   private scheduleFlush(): void {
