@@ -3,7 +3,7 @@
  * Extends RendererLogger to provide comprehensive UI interaction tracking
  */
 
-import { RendererLogger } from './RendererLogger';
+import { RendererLogger, LogLevel } from './RendererLogger';
 import { GameStateSnapshotManager } from './GameStateSnapshot';
 import { Card, GameState, Position } from '../types/card';
 import {
@@ -18,6 +18,37 @@ import {
   createTimestamp
 } from '../types/UIActionLogging';
 
+type DispatchMode = 'summary' | 'individual';
+
+interface UIActionLoggerConfig {
+  loggingLevel: LogLevel;
+  batching: {
+    enabled: boolean;
+    maxBatchSize: number;
+    flushIntervalMs: number;
+    dispatchMode: DispatchMode;
+  };
+  memory: {
+    warningThresholdBytes: number;
+  };
+}
+
+interface MemoryUsageStats {
+  eventCount: number;
+  approximateBytes: number;
+  approximateKilobytes: number;
+  approximateMegabytes: number;
+  thresholdBytes: number;
+  thresholdExceeded: boolean;
+}
+
+interface LoggingOverheadMetrics {
+  eventCount: number;
+  totalDuration: number;
+  averageDuration: number;
+  maxDuration: number;
+}
+
 /**
  * Enhanced logger for UI actions that uses the existing RendererLogger
  * Provides structured event tracking for debugging game state issues
@@ -29,9 +60,31 @@ export class UIActionLogger {
   private performanceTimers: Map<string, number> = new Map();
   private currentGameState: GameState | null = null;
   private logger: RendererLogger;
+  private config: UIActionLoggerConfig = {
+    loggingLevel: LogLevel.DEBUG,
+    batching: {
+      enabled: false,
+      maxBatchSize: 25,
+      flushIntervalMs: 250,
+      dispatchMode: 'summary'
+    },
+    memory: {
+      warningThresholdBytes: 5 * 1024 * 1024 // 5 MB
+    }
+  };
+  private pendingDispatch: UIActionEvent[] = [];
+  private batchFlushTimer: ReturnType<typeof setTimeout> | null = null;
+  private bufferSizeBytes = 0;
+  private memoryWarningIssued = false;
+  private loggingOverhead = {
+    eventCount: 0,
+    totalDuration: 0,
+    maxDuration: 0
+  };
 
   private constructor() {
     this.logger = RendererLogger.getInstance();
+    this.logger.setLogLevel(this.config.loggingLevel);
     this.logger.info('UI_ACTION_LOGGER', 'UIActionLogger initialized');
   }
 
@@ -87,6 +140,7 @@ export class UIActionLogger {
     captureStateAfter: boolean = false,
     performance?: PerformanceMetrics
   ): UIActionEvent {
+    const loggingStart = this.getTimestamp();
     const event: UIActionEvent = {
       id: generateEventId(),
       timestamp: createTimestamp(),
@@ -113,13 +167,11 @@ export class UIActionLogger {
 
     // Add to event buffer
     this.eventBuffer.push(event);
+    this.trackMemoryUsage(event);
+    this.queueEventForDispatch(event);
 
-    // Log the event using the base logger
-    this.info('UI_ACTION', `${component}: ${type}`, {
-      eventId: event.id,
-      data: event.data,
-      performance: event.performance
-    });
+    const duration = this.getTimestamp() - loggingStart;
+    this.recordLoggingOverhead(duration);
 
     return event;
   }
@@ -358,10 +410,235 @@ export class UIActionLogger {
   }
 
   /**
+   * Configure logging behaviour at runtime
+   */
+  public configure(options: {
+    loggingLevel?: LogLevel;
+    batching?: Partial<UIActionLoggerConfig['batching']>;
+    memory?: Partial<UIActionLoggerConfig['memory']>;
+  }): void {
+    if (options.loggingLevel !== undefined) {
+      this.config.loggingLevel = options.loggingLevel;
+      this.logger.setLogLevel(options.loggingLevel);
+    }
+
+    if (options.batching) {
+      const previousState = this.config.batching.enabled;
+      this.config.batching = {
+        ...this.config.batching,
+        ...options.batching
+      };
+
+      if (previousState && !this.config.batching.enabled) {
+        this.flushPendingEvents('batching-disabled');
+      }
+
+      if (!previousState && this.config.batching.enabled && this.pendingDispatch.length > 0) {
+        this.scheduleBatchFlush();
+      }
+
+      if (this.batchFlushTimer && !this.config.batching.enabled) {
+        this.clearBatchTimer();
+      }
+
+      if (this.batchFlushTimer && this.config.batching.enabled && options.batching.flushIntervalMs !== undefined) {
+        this.clearBatchTimer();
+        if (this.pendingDispatch.length > 0) {
+          this.scheduleBatchFlush();
+        }
+      }
+    }
+
+    if (options.memory) {
+      this.config.memory = {
+        ...this.config.memory,
+        ...options.memory
+      };
+
+      if (this.bufferSizeBytes <= this.config.memory.warningThresholdBytes) {
+        this.memoryWarningIssued = false;
+      }
+    }
+  }
+
+  /**
+   * Return current configuration (copy)
+   */
+  public getConfiguration(): UIActionLoggerConfig {
+    return JSON.parse(JSON.stringify(this.config));
+  }
+
+  /**
+   * Flush any pending batched events immediately
+   */
+  public flushPendingEvents(reason: string = 'manual'): void {
+    if (this.pendingDispatch.length === 0) {
+      this.clearBatchTimer();
+      return;
+    }
+
+    const eventsToDispatch = [...this.pendingDispatch];
+    this.pendingDispatch = [];
+    this.clearBatchTimer();
+
+    if (this.config.batching.dispatchMode === 'summary') {
+      this.logger.info('UI_ACTION_BATCH', `Dispatching ${eventsToDispatch.length} UI events`, {
+        reason,
+        count: eventsToDispatch.length,
+        events: eventsToDispatch.map(event => ({
+          id: event.id,
+          type: event.type,
+          component: event.component,
+          performance: event.performance
+        }))
+      });
+    } else {
+      eventsToDispatch.forEach(event => this.emitEvent(event));
+    }
+  }
+
+  /**
+   * Report approximate in-memory footprint of the logger
+   */
+  public getMemoryUsageStats(): MemoryUsageStats {
+    const approximateKilobytes = this.bufferSizeBytes / 1024;
+    const approximateMegabytes = approximateKilobytes / 1024;
+    const thresholdExceeded = this.bufferSizeBytes > this.config.memory.warningThresholdBytes;
+
+    return {
+      eventCount: this.eventBuffer.length,
+      approximateBytes: this.bufferSizeBytes,
+      approximateKilobytes,
+      approximateMegabytes,
+      thresholdBytes: this.config.memory.warningThresholdBytes,
+      thresholdExceeded
+    };
+  }
+
+  /**
+   * Retrieve logging overhead metrics collected for UIActionLogger operations
+   */
+  public getLoggingOverheadMetrics(): LoggingOverheadMetrics {
+    const { eventCount, totalDuration, maxDuration } = this.loggingOverhead;
+    const averageDuration = eventCount > 0 ? totalDuration / eventCount : 0;
+
+    return {
+      eventCount,
+      totalDuration,
+      averageDuration,
+      maxDuration
+    };
+  }
+
+  /**
+   * Emit a consolidated performance summary entry
+   */
+  public logPerformanceSummary(): void {
+    const performanceStats = this.getPerformanceStatistics();
+    const overheadStats = this.getLoggingOverheadMetrics();
+    const memoryStats = this.getMemoryUsageStats();
+
+    this.info('PERF', 'UIActionLogger performance summary', {
+      performanceStats,
+      overheadStats,
+      memoryStats
+    });
+  }
+
+  private queueEventForDispatch(event: UIActionEvent): void {
+    if (!this.config.batching.enabled) {
+      this.emitEvent(event);
+      return;
+    }
+
+    this.pendingDispatch.push(event);
+
+    if (this.pendingDispatch.length >= this.config.batching.maxBatchSize) {
+      this.flushPendingEvents('batch-size');
+      return;
+    }
+
+    if (!this.batchFlushTimer) {
+      this.scheduleBatchFlush();
+    }
+  }
+
+  private emitEvent(event: UIActionEvent): void {
+    this.info('UI_ACTION', `${event.component}: ${event.type}`, {
+      eventId: event.id,
+      data: event.data,
+      performance: event.performance
+    });
+  }
+
+  private scheduleBatchFlush(): void {
+    if (this.batchFlushTimer) {
+      return;
+    }
+
+    this.batchFlushTimer = setTimeout(() => {
+      this.flushPendingEvents('interval');
+    }, this.config.batching.flushIntervalMs);
+  }
+
+  private clearBatchTimer(): void {
+    if (this.batchFlushTimer) {
+      clearTimeout(this.batchFlushTimer);
+      this.batchFlushTimer = null;
+    }
+  }
+
+  private trackMemoryUsage(event: UIActionEvent): void {
+    const estimatedSize = this.estimateEventSize(event);
+    this.bufferSizeBytes += estimatedSize;
+
+    if (!this.memoryWarningIssued && this.bufferSizeBytes > this.config.memory.warningThresholdBytes) {
+      this.memoryWarningIssued = true;
+      this.warn('UI_ACTION_LOGGER', 'UI action event buffer memory usage exceeded threshold', {
+        approximateBytes: this.bufferSizeBytes,
+        thresholdBytes: this.config.memory.warningThresholdBytes
+      });
+    }
+  }
+
+  private estimateEventSize(event: UIActionEvent): number {
+    try {
+      const serialized = JSON.stringify(event);
+      if (typeof TextEncoder !== 'undefined') {
+        return new TextEncoder().encode(serialized).length;
+      }
+      if (typeof Buffer !== 'undefined') {
+        return Buffer.byteLength(serialized, 'utf8');
+      }
+      return serialized.length;
+    } catch {
+      return 0;
+    }
+  }
+
+  private recordLoggingOverhead(duration: number): void {
+    this.loggingOverhead.eventCount += 1;
+    this.loggingOverhead.totalDuration += duration;
+    if (duration > this.loggingOverhead.maxDuration) {
+      this.loggingOverhead.maxDuration = duration;
+    }
+  }
+
+  private getTimestamp(): number {
+    if (typeof globalThis !== 'undefined') {
+      const perf = (globalThis as any).performance;
+      if (perf && typeof perf.now === 'function') {
+        return perf.now();
+      }
+    }
+    return Date.now();
+  }
+
+  /**
    * Start performance timing for an operation
    */
   public startPerformanceTimer(operationId: string): void {
-    this.performanceTimers.set(operationId, performance.now());
+    this.performanceTimers.set(operationId, this.getTimestamp());
   }
 
   /**
@@ -374,7 +651,7 @@ export class UIActionLogger {
       return undefined;
     }
 
-    const endTime = performance.now();
+    const endTime = this.getTimestamp();
     const duration = endTime - startTime;
     
     this.performanceTimers.delete(operationId);
@@ -454,6 +731,15 @@ export class UIActionLogger {
     this.eventBuffer = [];
     this.sequenceNumber = 0;
     GameStateSnapshotManager.resetSequenceCounter();
+    this.pendingDispatch = [];
+    this.clearBatchTimer();
+    this.bufferSizeBytes = 0;
+    this.memoryWarningIssued = false;
+    this.loggingOverhead = {
+      eventCount: 0,
+      totalDuration: 0,
+      maxDuration: 0
+    };
     this.info('UI_ACTION_LOGGER', 'Event buffer cleared', { clearedEvents: eventCount });
   }
 

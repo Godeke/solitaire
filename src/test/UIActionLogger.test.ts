@@ -12,6 +12,7 @@ import {
   MoveValidationResult,
   PerformanceMetrics
 } from '../types/UIActionLogging';
+import { LogLevel } from '../utils/RendererLogger';
 
 // Mock the RendererLogger
 vi.mock('../utils/RendererLogger', () => ({
@@ -20,6 +21,7 @@ vi.mock('../utils/RendererLogger', () => ({
     info = vi.fn();
     warn = vi.fn();
     error = vi.fn();
+    setLogLevel = vi.fn();
     static getInstance = vi.fn(() => new MockRendererLogger());
   },
   LogLevel: {
@@ -70,6 +72,8 @@ describe('UIActionLogger', () => {
   });
 
   afterEach(() => {
+    logger.flushPendingEvents('test-teardown');
+    logger.clearEventBuffer();
     vi.clearAllMocks();
   });
 
@@ -353,6 +357,99 @@ describe('UIActionLogger', () => {
       const laterEvents = logger.getEventsInTimeRange(midTime, endTime);
       expect(laterEvents).toHaveLength(1);
       expect(laterEvents[0].type).toBe(UIActionEventType.DRAG_START);
+    });
+  });
+
+  describe('Configuration & Performance Monitoring', () => {
+    it('allows configuring logging level via configure', () => {
+      const rendererLogger = (logger as any).logger;
+      const setLevelSpy = vi.spyOn(rendererLogger, 'setLogLevel');
+
+      logger.configure({ loggingLevel: LogLevel.WARN });
+
+      expect(setLevelSpy).toHaveBeenCalledWith(LogLevel.WARN);
+      expect(logger.getConfiguration().loggingLevel).toBe(LogLevel.WARN);
+    });
+
+    it('batches events and flushes when batch size reached', () => {
+      const rendererLogger = (logger as any).logger;
+      const infoSpy = vi.spyOn(rendererLogger, 'info');
+
+      logger.configure({
+        batching: {
+          enabled: true,
+          maxBatchSize: 2,
+          flushIntervalMs: 500,
+          dispatchMode: 'summary'
+        }
+      });
+
+      logger.logCardClick('TestComponent', mockCard, { x: 0, y: 0 });
+      expect(infoSpy).not.toHaveBeenCalled();
+
+      logger.logCardClick('TestComponent', mockCard, { x: 0, y: 0 });
+      expect(infoSpy).toHaveBeenCalledTimes(1);
+      expect(infoSpy.mock.calls[0][0]).toBe('UI_ACTION_BATCH');
+
+      logger.flushPendingEvents();
+    });
+
+    it('dispatches individual events when batching mode configured as individual', () => {
+      const rendererLogger = (logger as any).logger;
+      const infoSpy = vi.spyOn(rendererLogger, 'info');
+
+      logger.configure({
+        batching: {
+          enabled: true,
+          maxBatchSize: 10,
+          flushIntervalMs: 1000,
+          dispatchMode: 'individual'
+        }
+      });
+
+      logger.logCardClick('TestComponent', mockCard, { x: 0, y: 0 });
+      logger.flushPendingEvents('test');
+
+      expect(infoSpy).toHaveBeenCalledWith(
+        'UI_ACTION',
+        expect.stringContaining('TestComponent'),
+        expect.objectContaining({ eventId: expect.any(String) })
+      );
+    });
+
+    it('tracks memory usage and warns when exceeding threshold', () => {
+      const rendererLogger = (logger as any).logger;
+      const warnSpy = vi.spyOn(rendererLogger, 'warn');
+
+      logger.configure({ memory: { warningThresholdBytes: 1 } });
+
+      logger.logCardClick('TestComponent', mockCard, { x: 0, y: 0 });
+
+      const memoryStats = logger.getMemoryUsageStats();
+      expect(memoryStats.thresholdExceeded).toBe(true);
+      expect(warnSpy).toHaveBeenCalled();
+    });
+
+    it('records logging overhead metrics for operations', () => {
+      logger.logCardClick('TestComponent', mockCard, { x: 0, y: 0 });
+      const overhead = logger.getLoggingOverheadMetrics();
+
+      expect(overhead.eventCount).toBeGreaterThan(0);
+      expect(overhead.totalDuration).toBeGreaterThanOrEqual(0);
+    });
+
+    it('logs performance summary to renderer logger', () => {
+      const rendererLogger = (logger as any).logger;
+      const infoSpy = vi.spyOn(rendererLogger, 'info');
+
+      logger.logCardClick('TestComponent', mockCard, { x: 0, y: 0 });
+      logger.logPerformanceSummary();
+
+      expect(infoSpy).toHaveBeenCalledWith(
+        'PERF',
+        'UIActionLogger performance summary',
+        expect.objectContaining({ performanceStats: expect.any(Object) })
+      );
     });
   });
 

@@ -9,19 +9,30 @@ import { uiActionLogger } from '../utils/UIActionLogger';
 import { UIActionEventType } from '../types/UIActionLogging';
 
 // Mock the RendererLogger to avoid IPC calls in tests
-vi.mock('../utils/RendererLogger', () => ({
-  logGameAction: vi.fn(),
-  logPerformance: vi.fn(),
-  logError: vi.fn(),
-  RendererLogger: {
-    getInstance: vi.fn(() => ({
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    }))
-  }
-}));
+vi.mock('../utils/RendererLogger', () => {
+  const mockInstance = {
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    setLogLevel: vi.fn()
+  };
+
+  return {
+    logGameAction: vi.fn(),
+    logPerformance: vi.fn(),
+    logError: vi.fn(),
+    RendererLogger: {
+      getInstance: vi.fn(() => mockInstance)
+    },
+    LogLevel: {
+      DEBUG: 0,
+      INFO: 1,
+      WARN: 2,
+      ERROR: 3
+    }
+  };
+});
 
 // Mock the GameStateSnapshotManager to avoid complex snapshot creation in tests
 vi.mock('../utils/GameStateSnapshot', () => ({
