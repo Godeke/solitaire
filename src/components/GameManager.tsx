@@ -2,26 +2,53 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { KlondikeGameBoard } from './KlondikeGameBoard';
 import { GameControls } from './GameControls';
 import { MainMenu } from './MainMenu';
+import { ReplayControls } from './ReplayControls';
+import { ReplayAnalyzer } from './ReplayAnalyzer';
 import { GameStateManager } from '../utils/GameStateManager';
+import { UIActionReplayEngine } from '../utils/UIActionReplayEngine';
 import { GameState } from '../types/card';
-import { logUserInteraction, logComponentMount, logComponentUnmount, logError } from '../utils/RendererLogger';
+import { UIActionEvent, ReplayOptions, ReplayResult } from '../types/UIActionLogging';
+import { logUserInteraction, logComponentMount, logComponentUnmount, logError, logGameAction } from '../utils/RendererLogger';
 import './GameManager.css';
 
 export type GameType = 'klondike' | 'spider' | 'freecell';
-export type AppState = 'menu' | 'game';
+export type AppState = 'menu' | 'game' | 'replay';
+
+export interface ReplayState {
+  isActive: boolean;
+  events: UIActionEvent[];
+  currentStep: number;
+  totalSteps: number;
+  isPaused: boolean;
+  replayEngine: UIActionReplayEngine | null;
+  replayResult: ReplayResult | null;
+  replayOptions: ReplayOptions | null;
+}
 
 export interface GameManagerProps {
   initialGameType?: GameType;
   initialState?: AppState;
   onStateChange?: (state: AppState, gameType?: GameType) => void;
   className?: string;
+  // Replay functionality props
+  replayEvents?: UIActionEvent[];
+  enableReplayMode?: boolean;
+  onReplayComplete?: (result: ReplayResult) => void;
+  // Developer debugging props
+  showReplayAnalyzer?: boolean;
+  onEventSelect?: (event: UIActionEvent, index: number) => void;
 }
 
 export const GameManager: React.FC<GameManagerProps> = ({
   initialGameType = 'klondike',
   initialState = 'menu',
   onStateChange,
-  className = ''
+  className = '',
+  replayEvents,
+  enableReplayMode = false,
+  onReplayComplete,
+  showReplayAnalyzer = false,
+  onEventSelect
 }) => {
   const [appState, setAppState] = useState<AppState>(initialState);
   const [currentGameType, setCurrentGameType] = useState<GameType>(initialGameType);
@@ -30,6 +57,23 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [score, setScore] = useState<number>(0);
   const [moveCount, setMoveCount] = useState<number>(0);
   const [isGameWon, setIsGameWon] = useState<boolean>(false);
+  
+  // Replay state management
+  const [replayState, setReplayState] = useState<ReplayState>({
+    isActive: false,
+    events: [],
+    currentStep: 0,
+    totalSteps: 0,
+    isPaused: false,
+    replayEngine: null,
+    replayResult: null,
+    replayOptions: null
+  });
+
+  // Developer debugging state
+  const [showAnalyzer, setShowAnalyzer] = useState<boolean>(showReplayAnalyzer);
+  const [selectedEvent, setSelectedEvent] = useState<UIActionEvent | null>(null);
+  const [filteredEvents, setFilteredEvents] = useState<UIActionEvent[]>([]);
 
   // Component lifecycle logging
   useEffect(() => {
@@ -68,7 +112,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
   // Notify parent of state changes
   useEffect(() => {
     if (onStateChange) {
-      onStateChange(appState, appState === 'game' ? currentGameType : undefined);
+      onStateChange(appState, appState === 'game' || appState === 'replay' ? currentGameType : undefined);
     }
   }, [appState, currentGameType, onStateChange]);
 
@@ -146,6 +190,227 @@ export const GameManager: React.FC<GameManagerProps> = ({
     setMoveCount(moves);
   }, []);
 
+  // Replay functionality methods
+  const handleStartReplay = useCallback(async (events: UIActionEvent[], options?: Partial<ReplayOptions>) => {
+    const { stepByStep = false, validateStates = true, stopAtStep } = options ?? {};
+
+    try {
+      const replayOptions: ReplayOptions = {
+        events,
+        stepByStep,
+        validateStates,
+        ...(typeof stopAtStep === 'number' ? { stopAtStep } : {})
+      };
+
+      logGameAction('Starting replay mode', 'REPLAY', {
+        eventCount: events.length,
+        gameType: currentGameType,
+        stepByStep: replayOptions.stepByStep,
+        validateStates: replayOptions.validateStates,
+        stopAtStep: replayOptions.stopAtStep
+      });
+
+      const replayEngine = new UIActionReplayEngine();
+      const initialized = replayEngine.initializeReplay(replayOptions);
+      if (!initialized) {
+        throw new Error('Failed to initialize replay engine');
+      }
+
+      setReplayState({
+        isActive: true,
+        events,
+        currentStep: 0,
+        totalSteps: replayEngine.getTotalSteps(),
+        isPaused: replayOptions.stepByStep,
+        replayEngine,
+        replayResult: null,
+        replayOptions
+      });
+
+      setAppState('replay');
+      setGameKey(prev => prev + 1);
+
+      const result = await replayEngine.startReplay();
+      const updatedCurrentStep = replayEngine.getCurrentStep();
+      const updatedTotalSteps = replayEngine.getTotalSteps();
+
+      if (replayOptions.stepByStep) {
+        setReplayState(prev => ({
+          ...prev,
+          currentStep: updatedCurrentStep,
+          totalSteps: updatedTotalSteps,
+          isPaused: true,
+          isActive: true
+        }));
+        return result;
+      }
+
+      setReplayState(prev => ({
+        ...prev,
+        currentStep: updatedCurrentStep,
+        totalSteps: updatedTotalSteps,
+        isActive: false,
+        isPaused: false,
+        replayResult: result
+      }));
+
+      if (onReplayComplete) {
+        onReplayComplete(result);
+      }
+
+      return result;
+    } catch (error) {
+      logError(error as Error, 'GameManager.handleStartReplay', { eventCount: events.length });
+      throw error;
+    }
+  }, [currentGameType, onReplayComplete]);
+
+  // Initialize replay mode if replay events are provided
+  useEffect(() => {
+    if (enableReplayMode && replayEvents && replayEvents.length > 0 && !replayState.isActive && appState !== 'replay') {
+      handleStartReplay(replayEvents, { stepByStep: true });
+    }
+  }, [enableReplayMode, replayEvents, replayState.isActive, appState, handleStartReplay]);
+
+  const handleReplayStep = useCallback(async () => {
+    const { replayEngine } = replayState;
+    if (!replayEngine || !replayState.isActive) {
+      return;
+    }
+
+    try {
+      const result = await replayEngine.nextStep();
+      const currentStep = replayEngine.getCurrentStep();
+      const totalSteps = replayEngine.getTotalSteps();
+      const hasCompleted = currentStep >= totalSteps;
+
+      const finalResult = hasCompleted ? replayEngine.finalizeReplay() : null;
+
+      setReplayState(prev => ({
+        ...prev,
+        currentStep,
+        totalSteps,
+        isActive: hasCompleted ? false : prev.isActive,
+        isPaused: hasCompleted ? true : prev.isPaused,
+        replayResult: finalResult ?? prev.replayResult
+      }));
+
+      logGameAction('Replay step executed', 'REPLAY', {
+        step: currentStep,
+        success: result.success,
+        processingTime: result.processingTime
+      });
+
+      if (finalResult && onReplayComplete) {
+        onReplayComplete(finalResult);
+      }
+
+      return result;
+    } catch (error) {
+      logError(error as Error, 'GameManager.handleReplayStep', {
+        currentStep: replayState.currentStep
+      });
+      throw error;
+    }
+  }, [replayState.replayEngine, replayState.isActive, replayState.currentStep, onReplayComplete]);
+
+  const handleReplayPause = useCallback(() => {
+    if (replayState.replayEngine) {
+      replayState.replayEngine.pauseReplay();
+      setReplayState(prev => ({ ...prev, isPaused: true }));
+      logGameAction('Replay paused', 'REPLAY', { currentStep: replayState.currentStep });
+    }
+  }, [replayState]);
+
+  const handleReplayResume = useCallback(() => {
+    if (replayState.replayEngine) {
+      replayState.replayEngine.resumeReplay();
+      setReplayState(prev => ({ ...prev, isPaused: false }));
+      logGameAction('Replay resumed', 'REPLAY', { currentStep: replayState.currentStep });
+    }
+  }, [replayState]);
+
+  const handleReplayStop = useCallback(() => {
+    if (replayState.replayEngine) {
+      replayState.replayEngine.stopReplay();
+    }
+    
+    setReplayState({
+      isActive: false,
+      events: [],
+      currentStep: 0,
+      totalSteps: 0,
+      isPaused: false,
+      replayEngine: null,
+      replayResult: null,
+      replayOptions: null
+    });
+
+    setAppState('game');
+    logGameAction('Replay stopped', 'REPLAY', { wasActive: replayState.isActive });
+  }, [replayState]);
+
+  const handleReplayValidation = useCallback(async (originalEvents: UIActionEvent[]) => {
+    try {
+      logGameAction('Starting replay validation', 'REPLAY', { 
+        eventCount: originalEvents.length 
+      });
+
+      const validationEngine = new UIActionReplayEngine();
+      const validationOptions: ReplayOptions = {
+        events: originalEvents,
+        validateStates: true,
+        stepByStep: false
+      };
+
+      const initialized = validationEngine.initializeReplay(validationOptions);
+      if (!initialized) {
+        throw new Error('Failed to initialize validation engine');
+      }
+
+      const result = await validationEngine.startReplay();
+      
+      logGameAction('Replay validation completed', 'REPLAY', {
+        success: result.success,
+        stepsExecuted: result.stepsExecuted,
+        errorCount: result.errors?.length || 0
+      });
+
+      return result;
+    } catch (error) {
+      logError(error as Error, 'GameManager.handleReplayValidation', { 
+        eventCount: originalEvents.length 
+      });
+      throw error;
+    }
+  }, []);
+
+  // Replay analyzer handlers
+  const handleEventSelect = useCallback((event: UIActionEvent, index: number) => {
+    setSelectedEvent(event);
+    
+    logUserInteraction('Event selected in replay analyzer', 'GameManager', {
+      eventType: event.type,
+      eventIndex: index,
+      component: event.component
+    });
+
+    if (onEventSelect) {
+      onEventSelect(event, index);
+    }
+  }, [onEventSelect]);
+
+  const handleFilterChange = useCallback((filtered: UIActionEvent[]) => {
+    setFilteredEvents(filtered);
+  }, []);
+
+  const toggleAnalyzer = useCallback(() => {
+    setShowAnalyzer(prev => !prev);
+    logUserInteraction('Replay analyzer toggled', 'GameManager', { 
+      showing: !showAnalyzer 
+    });
+  }, [showAnalyzer]);
+
   const renderMainMenu = () => {
     return (
       <MainMenu
@@ -157,6 +422,8 @@ export const GameManager: React.FC<GameManagerProps> = ({
   };
 
   const renderGameBoard = () => {
+    const isReplayMode = appState === 'replay';
+    
     switch (currentGameType) {
       case 'klondike':
         return (
@@ -166,6 +433,10 @@ export const GameManager: React.FC<GameManagerProps> = ({
             onScoreChange={handleScoreChange}
             onMoveCount={handleMoveCountChange}
             className="game-board"
+            // Replay mode props
+            replayMode={isReplayMode}
+            replayEngine={replayState.replayEngine}
+            replayEvents={replayState.events}
           />
         );
       case 'spider':
@@ -186,14 +457,45 @@ export const GameManager: React.FC<GameManagerProps> = ({
   };
 
   const renderGameView = () => {
+    const isReplayMode = appState === 'replay';
+    const hasReplayCompleted = replayState.currentStep >= replayState.totalSteps && !replayState.isActive;
+    const shouldShowReplayResult = isReplayMode && replayState.replayResult && hasReplayCompleted;
+    const replayStatusText = hasReplayCompleted ? 'Completed' : (replayState.isPaused ? 'Paused' : 'Playing');
+
     return (
       <div className="game-view" data-testid="game-view">
-        <GameControls
-          onNewGame={handleNewGame}
-          onBackToMenu={handleBackToMenu}
-          gameType={currentGameType}
-          className="game-controls"
-        />
+        <div className="controls-section">
+          {isReplayMode ? (
+            <ReplayControls
+              replayState={replayState}
+              onStep={handleReplayStep}
+              onPause={handleReplayPause}
+              onResume={handleReplayResume}
+              onStop={handleReplayStop}
+              onValidate={handleReplayValidation}
+              className="replay-controls"
+            />
+          ) : (
+            <GameControls
+              onNewGame={handleNewGame}
+              onBackToMenu={handleBackToMenu}
+              gameType={currentGameType}
+              className="game-controls"
+            />
+          )}
+          
+          {isReplayMode && replayState.events.length > 0 && (
+            <div className="analyzer-controls">
+              <button 
+                onClick={toggleAnalyzer}
+                className={`analyzer-toggle ${showAnalyzer ? 'active' : ''}`}
+                data-testid="analyzer-toggle"
+              >
+                {showAnalyzer ? 'Hide' : 'Show'} Event Analyzer
+              </button>
+            </div>
+          )}
+        </div>
         
         <div className="game-info-bar">
           <div className="game-stats">
@@ -203,16 +505,48 @@ export const GameManager: React.FC<GameManagerProps> = ({
             <span className="stat-item" data-testid="moves-display">
               Moves: {moveCount}
             </span>
+            {isReplayMode && (
+              <>
+                <span className="stat-item" data-testid="replay-step-display">
+                  Step: {replayState.currentStep} / {replayState.totalSteps}
+                </span>
+                <span className="stat-item" data-testid="replay-status-display">
+                  Status: {replayStatusText}
+                </span>
+              </>
+            )}
           </div>
-          {isGameWon && (
+          {isGameWon && !isReplayMode && (
             <div className="win-message" data-testid="win-message">
               🎉 Congratulations! You won!
             </div>
           )}
+          {shouldShowReplayResult && (
+            <div className="replay-result" data-testid="replay-result">
+              Replay {replayState.replayResult.success ? 'Completed Successfully' : 'Failed'}
+              {replayState.replayResult.errors && replayState.replayResult.errors.length > 0 && (
+                <span className="error-count"> ({replayState.replayResult.errors.length} errors)</span>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="game-content">
-          {renderGameBoard()}
+        <div className="game-content-container">
+          <div className="game-content">
+            {renderGameBoard()}
+          </div>
+          
+          {isReplayMode && showAnalyzer && replayState.events.length > 0 && (
+            <div className="analyzer-panel" data-testid="analyzer-panel">
+              <ReplayAnalyzer
+                events={replayState.events}
+                replayResult={replayState.replayResult}
+                onEventSelect={handleEventSelect}
+                onFilterChange={handleFilterChange}
+                className="replay-analyzer"
+              />
+            </div>
+          )}
         </div>
       </div>
     );

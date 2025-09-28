@@ -1,4 +1,4 @@
-import { Card as ICard, Suit, Rank, Position } from '../types/card';
+import { ICard, Suit, Rank, Position } from '../types/card';
 
 /**
  * Card class implementation with state management methods

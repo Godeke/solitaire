@@ -3,7 +3,8 @@
  */
 
 import { GameEngine, GameEngineConfig, MoveValidationResult } from '../types/game';
-import { Card, Position, Move, GameState } from '../types/card';
+import { Position, Move, GameState } from '../types/card';
+import { Card } from '../utils/Card';
 import { Deck } from '../utils/Deck';
 import { logGameAction, logError, logPerformance } from '../utils/RendererLogger';
 

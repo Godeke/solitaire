@@ -5,6 +5,9 @@ import { CardRenderer } from './CardRenderer';
 import { DropZone } from './DropZone';
 import { Card } from '../utils/Card';
 import { Position, GameState } from '../types/card';
+import { UIActionReplayEngine } from '../utils/UIActionReplayEngine';
+import { UIActionEvent } from '../types/UIActionLogging';
+import { logGameAction } from '../utils/RendererLogger';
 import './KlondikeGameBoard.css';
 
 export interface KlondikeGameBoardProps {
@@ -12,18 +15,43 @@ export interface KlondikeGameBoardProps {
   onScoreChange?: (score: number) => void;
   onMoveCount?: (moves: number) => void;
   className?: string;
+  // Replay mode props
+  replayMode?: boolean;
+  replayEngine?: UIActionReplayEngine | null;
+  replayEvents?: UIActionEvent[];
 }
 
 export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
   onGameWin,
   onScoreChange,
   onMoveCount,
-  className = ''
+  className = '',
+  replayMode = false,
+  replayEngine,
+  replayEvents
 }) => {
   const [engine] = useState(() => new KlondikeEngine());
   const [gameState, setGameState] = useState<GameState>(() => engine.initializeGame());
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [validMoves, setValidMoves] = useState<Position[]>([]);
+
+  // Initialize replay mode if enabled
+  useEffect(() => {
+    if (replayMode && replayEngine) {
+      // Inject the game engine instance into the replay engine
+      // This allows the replay engine to execute moves through the game engine
+      if (typeof replayEngine.attachGameEngine === 'function') {
+        replayEngine.attachGameEngine(engine);
+      } else {
+        (replayEngine as any).gameEngineInstance = engine;
+      }
+      
+      logGameAction('Replay mode initialized in KlondikeGameBoard', 'REPLAY', {
+        hasReplayEvents: !!replayEvents,
+        eventCount: replayEvents?.length || 0
+      });
+    }
+  }, [replayMode, replayEngine, replayEvents, engine]);
 
   // Update parent components when game state changes
   useEffect(() => {

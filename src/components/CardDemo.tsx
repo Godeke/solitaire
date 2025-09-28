@@ -116,6 +116,7 @@ export const CardDemo: React.FC = () => {
                   card={card}
                   onCardMove={handleCardMove}
                   onCardClick={handleCardClick}
+                  showCenterRank
                   style={{
                     position: 'absolute',
                     left: `${index * 20}px`,
@@ -152,6 +153,7 @@ export const CardDemo: React.FC = () => {
                         card={card}
                         onCardMove={handleCardMove}
                         onCardClick={handleCardClick}
+                        showCenterRank
                       />
                     ))}
                   </DropZone>

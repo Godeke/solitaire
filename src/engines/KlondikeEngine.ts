@@ -4,10 +4,13 @@
  */
 
 import { BaseGameEngine } from './BaseGameEngine';
-import { GameState, Card, Position, Move } from '../types/card';
+import { GameState, Position, Move } from '../types/card';
+import { Card } from '../utils/Card';
 import { GameEngineConfig } from '../types/game';
 import { Deck } from '../utils/Deck';
 import { logGameAction, logPerformance } from '../utils/RendererLogger';
+import { uiActionLogger } from '../utils/UIActionLogger';
+import { UIActionEventType, MoveValidationResult, PerformanceMetrics } from '../types/UIActionLogging';
 
 export class KlondikeEngine extends BaseGameEngine {
   private dealCount: number;
@@ -82,52 +85,299 @@ export class KlondikeEngine extends BaseGameEngine {
    * Validate if a move is legal according to Klondike rules
    */
   validateMove(from: Position, to: Position, card: Card): boolean {
+    const startTime = performance.now();
+    const operationId = `validate-move-${Date.now()}`;
+    
+    // Set current game state for logging
+    uiActionLogger.setCurrentGameState(this.gameState);
+    
+    // Start performance timing
+    uiActionLogger.startPerformanceTimer(operationId);
+    
+    const validationResult = this.validateMoveWithLogging(from, to, card);
+    
+    // End performance timing and log the validation
+    const performanceMetrics = uiActionLogger.endPerformanceTimer(operationId);
+    
+    // Log the move validation event
+    uiActionLogger.logUIAction(
+      UIActionEventType.MOVE_VALIDATED,
+      'KlondikeEngine',
+      {
+        sourcePosition: {
+          x: from.index,
+          y: from.cardIndex || 0,
+          zone: `${from.zone}-${from.index}`
+        },
+        targetPosition: {
+          x: to.index,
+          y: to.cardIndex || 0,
+          zone: `${to.zone}-${to.index}`
+        },
+        validationResult,
+        moveSuccess: validationResult.isValid
+      },
+      true, // Capture state before
+      false,
+      performanceMetrics
+    );
+    
+    return validationResult.isValid;
+  }
+
+  /**
+   * Internal validation method with detailed logging and reasoning
+   */
+  private validateMoveWithLogging(from: Position, to: Position, card: Card): MoveValidationResult {
+    const ruleViolations: string[] = [];
+    let reason = '';
+    let isValid = true;
+
     // Special case for stock to waste moves (cards are face down in stock)
     if (from.zone === 'stock' && to.zone === 'waste') {
-      return true;
+      reason = 'Stock to waste move is always valid';
+      logGameAction('Move validation: Stock to waste', 'klondike', { 
+        from, to, cardId: card.id, result: 'valid', reason 
+      });
+      return {
+        isValid: true,
+        reason,
+        validationTime: 0
+      };
     }
 
-    // Cannot move face-down cards (except stock to waste)
+    // Rule 1: Cannot move face-down cards (except stock to waste)
     if (!card.faceUp) {
-      return false;
+      isValid = false;
+      reason = 'Cannot move face-down cards';
+      ruleViolations.push('FACE_DOWN_CARD_MOVE');
+      logGameAction('Move validation failed: Face-down card', 'klondike', { 
+        from, to, cardId: card.id, faceUp: card.faceUp 
+      });
     }
 
-    // Validate source position
-    if (!this.isValidSourcePosition(from, card)) {
-      return false;
+    // Rule 2: Validate source position
+    if (isValid && !this.isValidSourcePositionWithLogging(from, card)) {
+      isValid = false;
+      reason = 'Invalid source position for card';
+      ruleViolations.push('INVALID_SOURCE_POSITION');
     }
 
-    // Validate destination based on zone
+    // Rule 3: Validate destination based on zone
+    if (isValid) {
+      const destinationValidation = this.validateDestinationWithLogging(card, to);
+      if (!destinationValidation.isValid) {
+        isValid = false;
+        reason = destinationValidation.reason;
+        ruleViolations.push(...(destinationValidation.ruleViolations || []));
+      } else {
+        reason = destinationValidation.reason;
+      }
+    }
+
+    const validationResult: MoveValidationResult = {
+      isValid,
+      reason,
+      ruleViolations: ruleViolations.length > 0 ? ruleViolations : undefined,
+      validationTime: performance.now()
+    };
+
+    // Log detailed validation result
+    logGameAction('Move validation completed', 'klondike', {
+      from,
+      to,
+      cardId: card.id,
+      result: isValid ? 'valid' : 'invalid',
+      reason,
+      ruleViolations,
+      validationTime: validationResult.validationTime
+    });
+
+    return validationResult;
+  }
+
+  /**
+   * Validate source position with detailed logging
+   */
+  private isValidSourcePositionWithLogging(from: Position, card: Card): boolean {
+    const sourceCards = this.getCardsAtPosition(from);
+    let isValid = true;
+    let reason = '';
+    
+    switch (from.zone) {
+      case 'tableau':
+        // Can only move face-up cards from tableau
+        const cardIndex = sourceCards.findIndex(c => c.id === card.id);
+        isValid = cardIndex !== -1 && card.faceUp;
+        reason = isValid 
+          ? 'Valid tableau source position' 
+          : `Card not found in tableau or face-down (index: ${cardIndex}, faceUp: ${card.faceUp})`;
+        break;
+      
+      case 'waste':
+        // Can only move the top card from waste
+        isValid = sourceCards.length > 0 && sourceCards[sourceCards.length - 1].id === card.id;
+        reason = isValid 
+          ? 'Valid waste source position (top card)' 
+          : `Card is not the top waste card (waste length: ${sourceCards.length})`;
+        break;
+      
+      case 'foundation':
+        // Can move from foundation (for undo functionality)
+        isValid = sourceCards.length > 0 && sourceCards[sourceCards.length - 1].id === card.id;
+        reason = isValid 
+          ? 'Valid foundation source position (top card)' 
+          : `Card is not the top foundation card (foundation length: ${sourceCards.length})`;
+        break;
+      
+      default:
+        isValid = true; // Allow other moves for testing
+        reason = 'Source position validation bypassed for testing';
+    }
+
+    logGameAction('Source position validation', 'klondike', {
+      zone: from.zone,
+      index: from.index,
+      cardId: card.id,
+      result: isValid ? 'valid' : 'invalid',
+      reason,
+      sourceCardsCount: sourceCards.length
+    });
+
+    return isValid;
+  }
+
+  /**
+   * Validate destination with detailed logging and reasoning
+   */
+  private validateDestinationWithLogging(card: Card, to: Position): MoveValidationResult {
+    let isValid = true;
+    let reason = '';
+    const ruleViolations: string[] = [];
+
     switch (to.zone) {
       case 'foundation':
-        return this.validateFoundationMove(card, to);
+        const foundationResult = this.validateFoundationMoveWithLogging(card, to);
+        return foundationResult;
+      
       case 'tableau':
-        return this.validateTableauMove(card, to);
+        const tableauResult = this.validateTableauMoveWithLogging(card, to);
+        return tableauResult;
+      
       case 'waste':
-        return from.zone === 'stock'; // Only stock to waste moves allowed
+        // Only stock to waste moves allowed (handled earlier)
+        isValid = false;
+        reason = 'Direct moves to waste pile not allowed';
+        ruleViolations.push('INVALID_WASTE_MOVE');
+        break;
+      
       default:
-        return false;
+        isValid = false;
+        reason = `Unknown destination zone: ${to.zone}`;
+        ruleViolations.push('UNKNOWN_DESTINATION_ZONE');
     }
+
+    return {
+      isValid,
+      reason,
+      ruleViolations: ruleViolations.length > 0 ? ruleViolations : undefined,
+      validationTime: performance.now()
+    };
   }
 
   /**
    * Execute a move and return the updated game state
    */
   executeMove(from: Position, to: Position, card: Card): GameState {
+    const operationId = `execute-move-${Date.now()}`;
+    
+    // Set current game state for logging
+    uiActionLogger.setCurrentGameState(this.gameState);
+    
+    // Start performance timing
+    uiActionLogger.startPerformanceTimer(operationId);
+    
+    // Validate the move first
     if (!this.validateMove(from, to, card)) {
       logGameAction('Invalid move attempted', 'klondike', { from, to, card: card.id });
+      
+      // Log the failed move attempt
+      uiActionLogger.logUIAction(
+        UIActionEventType.MOVE_ATTEMPT,
+        'KlondikeEngine',
+        {
+          sourcePosition: {
+            x: from.index,
+            y: from.cardIndex || 0,
+            zone: `${from.zone}-${from.index}`
+          },
+          targetPosition: {
+            x: to.index,
+            y: to.cardIndex || 0,
+            zone: `${to.zone}-${to.index}`
+          },
+          moveSuccess: false,
+          moveReason: 'Move validation failed'
+        },
+        true, // Capture state before
+        false
+      );
+      
       return this.getGameState();
     }
+
+    // Capture game state before move execution
+    const gameStateBefore = uiActionLogger.createGameStateSnapshot(
+      'before_move_execution',
+      'KlondikeEngine.executeMove'
+    );
 
     const startTime = performance.now();
 
     // Handle special stock to waste move
     if (from.zone === 'stock' && to.zone === 'waste') {
-      return this.executeStockToWasteMove();
+      const result = this.executeStockToWasteMoveWithLogging();
+      
+      // End performance timing
+      const performanceMetrics = uiActionLogger.endPerformanceTimer(operationId);
+      
+      // Log the executed move
+      uiActionLogger.logUIAction(
+        UIActionEventType.MOVE_EXECUTED,
+        'KlondikeEngine',
+        {
+          sourcePosition: {
+            x: from.index,
+            y: from.cardIndex || 0,
+            zone: `${from.zone}-${from.index}`
+          },
+          targetPosition: {
+            x: to.index,
+            y: to.cardIndex || 0,
+            zone: `${to.zone}-${to.index}`
+          },
+          moveType: 'user',
+          moveSuccess: true,
+          moveReason: 'Stock to waste move executed'
+        },
+        false,
+        true, // Capture state after
+        performanceMetrics
+      );
+      
+      return result;
     }
 
     // Get cards to move (may be multiple for tableau sequences)
     const cardsToMove = this.getCardsToMove(from, card);
+    
+    logGameAction('Executing move', 'klondike', {
+      from,
+      to,
+      cardId: card.id,
+      cardsToMoveCount: cardsToMove.length,
+      cardsToMove: cardsToMove.map(c => ({ id: c.id, suit: c.suit, rank: c.rank }))
+    });
     
     // Remove cards from source
     this.removeCardsFromPosition(from, cardsToMove.length);
@@ -139,8 +389,8 @@ export class KlondikeEngine extends BaseGameEngine {
     this.updateCardPositions();
     this.updateCardDraggability();
 
-    // Flip face-down cards that are now exposed
-    this.flipExposedCards();
+    // Check for and flip face-down cards that are now exposed
+    const flippedCards = this.flipExposedCardsWithLogging();
 
     // Record the move
     const move: Move = {
@@ -153,15 +403,49 @@ export class KlondikeEngine extends BaseGameEngine {
     this.recordMove(move);
 
     // Update score
-    this.updateScore(move);
+    const scoreChange = this.updateScoreWithLogging(move);
 
+    // End performance timing
+    const performanceMetrics = uiActionLogger.endPerformanceTimer(operationId);
+    
     const duration = performance.now() - startTime;
     logPerformance('Move execution', duration, {
       from: move.from,
       to: move.to,
       cardsMovedCount: move.cards.length,
-      newScore: this.gameState.score
+      newScore: this.gameState.score,
+      scoreChange,
+      flippedCardsCount: flippedCards.length
     });
+
+    // Log the executed move with before/after state snapshots
+    uiActionLogger.logUIAction(
+      UIActionEventType.MOVE_EXECUTED,
+      'KlondikeEngine',
+      {
+        sourcePosition: {
+          x: from.index,
+          y: from.cardIndex || 0,
+          zone: `${from.zone}-${from.index}`
+        },
+        targetPosition: {
+          x: to.index,
+          y: to.cardIndex || 0,
+          zone: `${to.zone}-${to.index}`
+        },
+        moveType: 'user',
+        moveSuccess: true,
+        moveReason: `Successfully moved ${cardsToMove.length} card(s) from ${from.zone} to ${to.zone}`,
+        changedElements: [
+          `${from.zone}-${from.index}`,
+          `${to.zone}-${to.index}`,
+          ...flippedCards.map(card => `card-${card.id}-flipped`)
+        ]
+      },
+      false,
+      true, // Capture state after
+      performanceMetrics
+    );
 
     return this.getGameState();
   }
@@ -272,11 +556,23 @@ export class KlondikeEngine extends BaseGameEngine {
    */
   autoComplete(): boolean {
     if (!this.config.enableAutoComplete) {
+      logGameAction('Auto-complete disabled', 'klondike', { 
+        enableAutoComplete: this.config.enableAutoComplete 
+      });
       return false;
     }
 
+    const operationId = `auto-complete-${Date.now()}`;
+    uiActionLogger.startPerformanceTimer(operationId);
+    
+    logGameAction('Auto-complete started', 'klondike', {
+      currentScore: this.gameState.score,
+      moveCount: this.gameState.moves.length
+    });
+
     let movesMade = 0;
     let maxMoves = 100; // Prevent infinite loops
+    const autoMoves: Move[] = [];
 
     while (movesMade < maxMoves) {
       const validMoves = this.getValidMoves();
@@ -285,6 +581,10 @@ export class KlondikeEngine extends BaseGameEngine {
       const foundationMoves = validMoves.filter(move => move.to.zone === 'foundation');
       
       if (foundationMoves.length === 0) {
+        logGameAction('Auto-complete stopped: No foundation moves available', 'klondike', {
+          movesMade,
+          totalValidMoves: validMoves.length
+        });
         break; // No more foundation moves available
       }
 
@@ -292,17 +592,113 @@ export class KlondikeEngine extends BaseGameEngine {
       const move = foundationMoves[0];
       const sourceCards = this.getCardsAtPosition(move.from);
       const card = sourceCards[sourceCards.length - 1]; // Get the top card
-      this.executeMove(move.from, move.to, card);
+      
+      // Log the auto-move before execution
+      logGameAction('Executing auto-move', 'klondike', {
+        moveNumber: movesMade + 1,
+        from: move.from,
+        to: move.to,
+        cardId: card.id,
+        cardSuit: card.suit,
+        cardRank: card.rank
+      });
+
+      // Log the auto-move event
+      uiActionLogger.logUIAction(
+        UIActionEventType.AUTO_MOVE,
+        'KlondikeEngine',
+        {
+          sourcePosition: {
+            x: move.from.index,
+            y: move.from.cardIndex || 0,
+            zone: `${move.from.zone}-${move.from.index}`
+          },
+          targetPosition: {
+            x: move.to.index,
+            y: move.to.cardIndex || 0,
+            zone: `${move.to.zone}-${move.to.index}`
+          },
+          moveType: 'auto',
+          moveSuccess: true,
+          moveReason: `Auto-move ${movesMade + 1}: ${card.suit} ${card.rank} to foundation`
+        },
+        true, // Capture state before
+        false
+      );
+      
+      this.executeAutoMove(move.from, move.to, card);
+      autoMoves.push(move);
       movesMade++;
 
       // Check if game is won
       if (this.checkWinCondition()) {
+        const performanceMetrics = uiActionLogger.endPerformanceTimer(operationId);
+        
+        logGameAction('Auto-complete successful: Game won!', 'klondike', {
+          movesMade,
+          finalScore: this.gameState.score,
+          autoMoves: autoMoves.map(m => ({
+            from: m.from,
+            to: m.to,
+            cards: m.cards.map(c => ({ id: c.id, suit: c.suit, rank: c.rank }))
+          }))
+        });
+
+        // Log win condition
+        uiActionLogger.logUIAction(
+          UIActionEventType.WIN_CONDITION,
+          'KlondikeEngine',
+          {
+            changeType: 'win_condition',
+            changedElements: ['game-state'],
+            moveReason: `Game won after ${movesMade} auto-moves`
+          },
+          false,
+          true, // Capture final state
+          performanceMetrics
+        );
+        
         return true;
       }
     }
 
+    const performanceMetrics = uiActionLogger.endPerformanceTimer(operationId);
+    
+    logGameAction('Auto-complete finished', 'klondike', {
+      movesMade,
+      maxMovesReached: movesMade >= maxMoves,
+      finalScore: this.gameState.score,
+      gameWon: this.checkWinCondition()
+    });
+
     // Return true if any moves were made (partial auto-completion)
     return movesMade > 0;
+  }
+
+  /**
+   * Execute an auto-move with special logging
+   */
+  private executeAutoMove(from: Position, to: Position, card: Card): GameState {
+    // Mark the move as auto-move before execution
+    const gameStateBefore = this.getGameState();
+    
+    // Execute the move normally
+    const result = this.executeMove(from, to, card);
+    
+    // Update the last move to mark it as auto-move
+    if (this.gameState.moves.length > 0) {
+      const lastMove = this.gameState.moves[this.gameState.moves.length - 1];
+      lastMove.autoMove = true;
+      
+      logGameAction('Auto-move executed', 'klondike', {
+        from: lastMove.from,
+        to: lastMove.to,
+        cardsCount: lastMove.cards.length,
+        newScore: this.gameState.score
+      });
+    }
+    
+    return result;
   }  
 /**
    * Validate if the source position is valid for the given card
@@ -333,32 +729,148 @@ export class KlondikeEngine extends BaseGameEngine {
    * Validate move to foundation pile
    */
   private validateFoundationMove(card: Card, to: Position): boolean {
+    const result = this.validateFoundationMoveWithLogging(card, to);
+    return result.isValid;
+  }
+
+  /**
+   * Validate move to foundation pile with detailed logging
+   */
+  private validateFoundationMoveWithLogging(card: Card, to: Position): MoveValidationResult {
     const foundationPile = this.gameState.foundation[to.index];
+    let isValid = true;
+    let reason = '';
+    const ruleViolations: string[] = [];
     
     if (!foundationPile || foundationPile.length === 0) {
       // Empty foundation pile - only Aces allowed
-      return card.rank === 1;
+      isValid = card.rank === 1;
+      reason = isValid 
+        ? 'Valid: Ace placed on empty foundation pile'
+        : `Invalid: Only Aces can be placed on empty foundation (card rank: ${card.rank})`;
+      
+      if (!isValid) {
+        ruleViolations.push('NON_ACE_ON_EMPTY_FOUNDATION');
+      }
+    } else {
+      const topCard = foundationPile[foundationPile.length - 1];
+      const suitMatch = card.suit === topCard.suit;
+      const rankSequential = card.rank === topCard.rank + 1;
+      
+      isValid = suitMatch && rankSequential;
+      
+      if (isValid) {
+        reason = `Valid: ${card.suit} ${card.rank} follows ${topCard.suit} ${topCard.rank} in foundation`;
+      } else {
+        if (!suitMatch) {
+          reason = `Invalid: Suit mismatch (${card.suit} vs ${topCard.suit})`;
+          ruleViolations.push('FOUNDATION_SUIT_MISMATCH');
+        } else if (!rankSequential) {
+          reason = `Invalid: Rank not sequential (${card.rank} should be ${topCard.rank + 1})`;
+          ruleViolations.push('FOUNDATION_RANK_NOT_SEQUENTIAL');
+        }
+      }
     }
-    
-    const topCard = foundationPile[foundationPile.length - 1];
-    // Same suit, ascending rank (Ace=1, 2, 3, ..., King=13)
-    return card.suit === topCard.suit && card.rank === topCard.rank + 1;
+
+    logGameAction('Foundation move validation', 'klondike', {
+      cardId: card.id,
+      cardSuit: card.suit,
+      cardRank: card.rank,
+      foundationIndex: to.index,
+      foundationSize: foundationPile?.length || 0,
+      topFoundationCard: foundationPile?.length > 0 ? {
+        suit: foundationPile[foundationPile.length - 1].suit,
+        rank: foundationPile[foundationPile.length - 1].rank
+      } : null,
+      result: isValid ? 'valid' : 'invalid',
+      reason,
+      ruleViolations
+    });
+
+    return {
+      isValid,
+      reason,
+      ruleViolations: ruleViolations.length > 0 ? ruleViolations : undefined,
+      validationTime: performance.now()
+    };
   }
 
   /**
    * Validate move to tableau column
    */
   private validateTableauMove(card: Card, to: Position): boolean {
+    const result = this.validateTableauMoveWithLogging(card, to);
+    return result.isValid;
+  }
+
+  /**
+   * Validate move to tableau column with detailed logging
+   */
+  private validateTableauMoveWithLogging(card: Card, to: Position): MoveValidationResult {
     const tableauColumn = this.gameState.tableau[to.index];
+    let isValid = true;
+    let reason = '';
+    const ruleViolations: string[] = [];
     
     if (tableauColumn.length === 0) {
       // Empty tableau column - only Kings allowed
-      return card.rank === 13;
+      isValid = card.rank === 13;
+      reason = isValid 
+        ? 'Valid: King placed on empty tableau column'
+        : `Invalid: Only Kings can be placed on empty tableau (card rank: ${card.rank})`;
+      
+      if (!isValid) {
+        ruleViolations.push('NON_KING_ON_EMPTY_TABLEAU');
+      }
+    } else {
+      const topCard = tableauColumn[tableauColumn.length - 1];
+      const canStack = card.canStackOn(topCard);
+      
+      isValid = canStack;
+      
+      if (isValid) {
+        reason = `Valid: ${card.suit} ${card.rank} can stack on ${topCard.suit} ${topCard.rank}`;
+      } else {
+        // Determine specific rule violation
+        const colorAlternates = card.isRed() !== topCard.isRed();
+        const rankDescending = card.rank === topCard.rank - 1;
+        
+        if (!colorAlternates) {
+          reason = `Invalid: Colors don't alternate (${card.suit} vs ${topCard.suit})`;
+          ruleViolations.push('TABLEAU_COLOR_NOT_ALTERNATING');
+        } else if (!rankDescending) {
+          reason = `Invalid: Rank not descending (${card.rank} should be ${topCard.rank - 1})`;
+          ruleViolations.push('TABLEAU_RANK_NOT_DESCENDING');
+        } else {
+          reason = `Invalid: Cannot stack ${card.suit} ${card.rank} on ${topCard.suit} ${topCard.rank}`;
+          ruleViolations.push('TABLEAU_STACKING_RULE_VIOLATION');
+        }
+      }
     }
-    
-    const topCard = tableauColumn[tableauColumn.length - 1];
-    // Alternating colors, descending rank
-    return card.canStackOn(topCard);
+
+    logGameAction('Tableau move validation', 'klondike', {
+      cardId: card.id,
+      cardSuit: card.suit,
+      cardRank: card.rank,
+      cardColor: card.isRed() ? 'red' : 'black',
+      tableauIndex: to.index,
+      tableauSize: tableauColumn.length,
+      topTableauCard: tableauColumn.length > 0 ? {
+        suit: tableauColumn[tableauColumn.length - 1].suit,
+        rank: tableauColumn[tableauColumn.length - 1].rank,
+        color: tableauColumn[tableauColumn.length - 1].isRed() ? 'red' : 'black'
+      } : null,
+      result: isValid ? 'valid' : 'invalid',
+      reason,
+      ruleViolations
+    });
+
+    return {
+      isValid,
+      reason,
+      ruleViolations: ruleViolations.length > 0 ? ruleViolations : undefined,
+      validationTime: performance.now()
+    };
   }
 
   /**
@@ -391,9 +903,23 @@ export class KlondikeEngine extends BaseGameEngine {
    * Execute stock to waste move (deal cards from stock)
    */
   private executeStockToWasteMove(): GameState {
+    return this.executeStockToWasteMoveWithLogging();
+  }
+
+  /**
+   * Execute stock to waste move with detailed logging
+   */
+  private executeStockToWasteMoveWithLogging(): GameState {
     if (!this.gameState.stock || this.gameState.stock.length === 0) {
       // If stock is empty, recycle waste back to stock
       if (this.gameState.waste && this.gameState.waste.length > 0) {
+        const recycledCount = this.gameState.waste.length;
+        
+        logGameAction('Recycling waste to stock', 'klondike', {
+          wasteCardsCount: recycledCount,
+          action: 'recycle_waste_to_stock'
+        });
+        
         this.gameState.stock = [...this.gameState.waste].reverse();
         this.gameState.waste = [];
         
@@ -402,6 +928,19 @@ export class KlondikeEngine extends BaseGameEngine {
           card.faceUp = false;
           card.draggable = false;
         });
+
+        // Log the state change
+        uiActionLogger.logStateChange(
+          'KlondikeEngine',
+          'pile_update',
+          ['stock-recycled', 'waste-cleared'],
+          undefined
+        );
+      } else {
+        logGameAction('Stock to waste move attempted with empty stock and waste', 'klondike', {
+          stockCount: 0,
+          wasteCount: 0
+        });
       }
       return this.getGameState();
     }
@@ -409,6 +948,12 @@ export class KlondikeEngine extends BaseGameEngine {
     // Deal cards from stock to waste
     const cardsToDeal = Math.min(this.dealCount, this.gameState.stock.length);
     const dealtCards = this.gameState.stock.splice(-cardsToDeal, cardsToDeal);
+    
+    logGameAction('Dealing cards from stock to waste', 'klondike', {
+      cardsToDeal,
+      dealtCards: dealtCards.map(card => ({ id: card.id, suit: card.suit, rank: card.rank })),
+      remainingStockCount: this.gameState.stock.length
+    });
     
     // Make dealt cards face up
     dealtCards.forEach(card => {
@@ -434,6 +979,14 @@ export class KlondikeEngine extends BaseGameEngine {
       autoMove: false
     };
     this.recordMove(move);
+
+    // Log the state change
+    uiActionLogger.logStateChange(
+      'KlondikeEngine',
+      'pile_update',
+      ['stock-dealt', 'waste-updated'],
+      undefined
+    );
 
     return this.getGameState();
   }
@@ -490,37 +1043,129 @@ export class KlondikeEngine extends BaseGameEngine {
    * Flip face-down cards that are now exposed
    */
   private flipExposedCards(): void {
-    this.gameState.tableau.forEach(column => {
+    const flippedCards = this.flipExposedCardsWithLogging();
+    // Method already handles logging internally
+  }
+
+  /**
+   * Flip face-down cards that are now exposed with detailed logging
+   */
+  private flipExposedCardsWithLogging(): Card[] {
+    const flippedCards: Card[] = [];
+    
+    this.gameState.tableau.forEach((column, columnIndex) => {
       if (column.length > 0) {
         const topCard = column[column.length - 1];
         if (!topCard.faceUp) {
           topCard.flip();
           topCard.draggable = true;
+          flippedCards.push(topCard);
+          
+          logGameAction('Card flipped', 'klondike', {
+            cardId: topCard.id,
+            suit: topCard.suit,
+            rank: topCard.rank,
+            columnIndex,
+            position: 'top_of_column'
+          });
+
+          // Log the card flip event
+          uiActionLogger.logUIAction(
+            UIActionEventType.CARD_FLIP,
+            'KlondikeEngine',
+            {
+              card: uiActionLogger.createCardSnapshot(topCard),
+              changeType: 'card_flip',
+              changedElements: [`card-${topCard.id}`, `tableau-${columnIndex}`]
+            },
+            false,
+            false
+          );
         }
       }
     });
+
+    if (flippedCards.length > 0) {
+      logGameAction('Cards flipped after move', 'klondike', {
+        flippedCount: flippedCards.length,
+        flippedCards: flippedCards.map(card => ({
+          id: card.id,
+          suit: card.suit,
+          rank: card.rank
+        }))
+      });
+    }
+
+    return flippedCards;
   }
 
   /**
    * Update game score based on the move
    */
   private updateScore(move: Move): void {
+    const scoreChange = this.updateScoreWithLogging(move);
+    // Method already handles logging internally
+  }
+
+  /**
+   * Update game score based on the move with detailed logging
+   */
+  private updateScoreWithLogging(move: Move): number {
+    const previousScore = this.gameState.score;
+    let scoreChange = 0;
+    let scoringReason = '';
+
     // Klondike scoring system
     if (move.to.zone === 'foundation') {
-      this.gameState.score += 10; // Points for moving to foundation
+      scoreChange += 10; // Points for moving to foundation
+      scoringReason = 'Move to foundation (+10)';
     } else if (move.from.zone === 'waste' && move.to.zone === 'tableau') {
-      this.gameState.score += 5; // Points for waste to tableau
+      scoreChange += 5; // Points for waste to tableau
+      scoringReason = 'Waste to tableau (+5)';
     } else if (move.from.zone === 'tableau' && move.to.zone === 'tableau') {
-      this.gameState.score += 3; // Points for tableau to tableau
+      scoreChange += 3; // Points for tableau to tableau
+      scoringReason = 'Tableau to tableau (+3)';
     }
 
     // Bonus for flipping cards
     if (move.from.zone === 'tableau') {
       const sourceColumn = this.gameState.tableau[move.from.index];
       if (sourceColumn.length > 0 && sourceColumn[sourceColumn.length - 1].faceUp) {
-        this.gameState.score += 5; // Bonus for revealing a card
+        scoreChange += 5; // Bonus for revealing a card
+        scoringReason += ', Card revealed (+5)';
       }
     }
+
+    this.gameState.score += scoreChange;
+
+    if (scoreChange > 0) {
+      logGameAction('Score updated', 'klondike', {
+        previousScore,
+        newScore: this.gameState.score,
+        scoreChange,
+        reason: scoringReason,
+        move: {
+          from: move.from,
+          to: move.to,
+          cardsCount: move.cards.length
+        }
+      });
+
+      // Log the score change event
+      uiActionLogger.logUIAction(
+        UIActionEventType.SCORE_UPDATE,
+        'KlondikeEngine',
+        {
+          changeType: 'score_change',
+          changedElements: ['game-score'],
+          moveReason: scoringReason
+        },
+        false,
+        false
+      );
+    }
+
+    return scoreChange;
   }
 
   /**

@@ -1,8 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { useDrop } from 'react-dnd';
 import { motion } from 'framer-motion';
 import { Card } from '../utils/Card';
 import { Position } from '../types/card';
+import { uiActionLogger, withPerformanceLogging } from '../utils/UIActionLogger';
+import { UIActionEventType, MoveValidationResult } from '../types/UIActionLogging';
 import './DropZone.css';
 
 export interface DropZoneProps {
@@ -40,37 +42,164 @@ export const DropZone: React.FC<DropZoneProps> = ({
 }) => {
   const ref = useRef<HTMLDivElement>(null);
 
+  // Enhanced drop handler with comprehensive logging
+  const handleDrop = useCallback(withPerformanceLogging(
+    'dropzone-drop',
+    (item: DragItem): DropResult => {
+      const operationId = `drop-${Date.now()}`;
+      uiActionLogger.startPerformanceTimer(operationId);
+
+      try {
+        // Create validation result for logging
+        let validationResult: MoveValidationResult = {
+          isValid: true,
+          reason: 'Drop accepted',
+          validationTime: 0
+        };
+
+        // Perform validation if validator is provided
+        if (isValidDropTarget) {
+          const validationStart = performance.now();
+          const isValid = isValidDropTarget(item.card);
+          const validationEnd = performance.now();
+          
+          validationResult = {
+            isValid,
+            reason: isValid ? 'Drop validation passed' : 'Drop validation failed',
+            validationTime: validationEnd - validationStart,
+            ruleViolations: isValid ? undefined : ['Drop target validation failed']
+          };
+        }
+
+        // Log the drop attempt
+        const performance = uiActionLogger.endPerformanceTimer(operationId);
+        uiActionLogger.logDragDrop(
+          'DropZone',
+          item.card,
+          item.from,
+          position,
+          validationResult,
+          performance
+        );
+
+        // Execute the drop callback if provided
+        if (onCardDrop) {
+          const dropResult = onCardDrop(item.card, item.from, position);
+          
+          // Log the drop execution result
+          uiActionLogger.logMoveExecuted(
+            'DropZone',
+            item.from,
+            position,
+            [item.card],
+            'user',
+            performance
+          );
+
+          // If drop was rejected, log the failure
+          if (!dropResult) {
+            uiActionLogger.logStateChange(
+              'DropZone',
+              'pile_update',
+              [`drop-rejected-${position.zone}-${position.index}`],
+              performance
+            );
+          }
+        }
+
+        return { to: position };
+      } catch (error) {
+        // Log any errors during drop processing
+        uiActionLogger.error('DROPZONE', 'Drop operation failed', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          card: `${item.card.getRankName()} of ${item.card.getSuitName()}`,
+          from: item.from,
+          to: position
+        });
+        
+        uiActionLogger.endPerformanceTimer(operationId);
+        throw error;
+      }
+    }
+  ), [position, onCardDrop, isValidDropTarget]);
+
+  // Enhanced validation handler with detailed logging
+  const handleCanDrop = useCallback(withPerformanceLogging(
+    'dropzone-validation',
+    (item: DragItem): boolean => {
+      const operationId = `validation-${Date.now()}`;
+      uiActionLogger.startPerformanceTimer(operationId);
+
+      try {
+        let canDropResult = true;
+        let validationReason = 'No validation function provided';
+        const ruleViolations: string[] = [];
+
+        if (isValidDropTarget) {
+          const validationStart = performance.now();
+          canDropResult = isValidDropTarget(item.card);
+          const validationEnd = performance.now();
+          
+          validationReason = canDropResult 
+            ? 'Validation passed' 
+            : 'Validation failed - invalid drop target';
+          
+          if (!canDropResult) {
+            ruleViolations.push('Drop target validation failed');
+          }
+
+          // Create detailed validation result
+          const validationResult: MoveValidationResult = {
+            isValid: canDropResult,
+            reason: validationReason,
+            ruleViolations: ruleViolations.length > 0 ? ruleViolations : undefined,
+            validationTime: validationEnd - validationStart
+          };
+
+          // Log the hover/validation event
+          const performance = uiActionLogger.endPerformanceTimer(operationId);
+          uiActionLogger.logDragHover(
+            'DropZone',
+            item.card,
+            position,
+            validationResult,
+            performance
+          );
+        } else {
+          // Log hover without validation
+          const performance = uiActionLogger.endPerformanceTimer(operationId);
+          uiActionLogger.logDragHover(
+            'DropZone',
+            item.card,
+            position,
+            {
+              isValid: true,
+              reason: 'No validation required',
+              validationTime: 0
+            },
+            performance
+          );
+        }
+
+        return canDropResult;
+      } catch (error) {
+        // Log validation errors
+        uiActionLogger.error('DROPZONE', 'Validation failed', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          card: `${item.card.getRankName()} of ${item.card.getSuitName()}`,
+          position: position
+        });
+        
+        uiActionLogger.endPerformanceTimer(operationId);
+        return false;
+      }
+    }
+  ), [position, isValidDropTarget]);
+
   const [{ isOver, canDrop, draggedCard }, drop] = useDrop({
     accept: CARD_TYPE,
-    drop: (item: DragItem): DropResult => {
-      console.log('📦 DROPZONE DROP:', {
-        draggedCard: `${item.card.getRankName()} of ${item.card.getSuitName()}`,
-        from: item.from,
-        to: position,
-        hasOnCardDrop: !!onCardDrop
-      });
-      
-      if (onCardDrop) {
-        console.log('📞 CALLING DropZone onCardDrop...');
-        onCardDrop(item.card, item.from, position);
-      }
-      return { to: position };
-    },
-    canDrop: (item: DragItem) => {
-      let canDropResult = true;
-      if (isValidDropTarget) {
-        canDropResult = isValidDropTarget(item.card);
-      }
-      
-      console.log('🎯 DROPZONE CAN DROP CHECK:', {
-        draggedCard: `${item.card.getRankName()} of ${item.card.getSuitName()}`,
-        dropZone: `${position.zone}[${position.index}]`,
-        hasValidator: !!isValidDropTarget,
-        canDropResult
-      });
-      
-      return canDropResult;
-    },
+    drop: handleDrop,
+    canDrop: handleCanDrop,
     collect: (monitor) => ({
       isOver: monitor.isOver(),
       canDrop: monitor.canDrop(),
@@ -80,25 +209,87 @@ export const DropZone: React.FC<DropZoneProps> = ({
 
   drop(ref);
 
-  const getDropZoneClasses = () => {
+  // Log hover state changes for detailed interaction tracking
+  React.useEffect(() => {
+    if (draggedCard && isOver) {
+      const hoverOperationId = `hover-${Date.now()}`;
+      uiActionLogger.startPerformanceTimer(hoverOperationId);
+      
+      // Log hover enter event
+      const performance = uiActionLogger.endPerformanceTimer(hoverOperationId);
+      uiActionLogger.logUIAction(
+        UIActionEventType.DRAG_HOVER,
+        'DropZone',
+        {
+          card: uiActionLogger.createCardSnapshot(draggedCard),
+          targetPosition: {
+            x: position.index,
+            y: position.cardIndex || 0,
+            zone: `${position.zone}-${position.index}`
+          },
+          validationResult: {
+            isValid: canDrop,
+            reason: canDrop ? 'Hover validation passed' : 'Hover validation failed',
+            validationTime: 0
+          }
+        },
+        false,
+        false,
+        performance
+      );
+    }
+  }, [isOver, canDrop, draggedCard, position]);
+
+  const hasChildren = React.Children.count(children) > 0;
+
+  const getDropZoneClasses = useCallback(() => {
     const classes = ['drop-zone', className];
-    
+
     if (canDrop) {
       classes.push('can-drop');
     }
-    
+
     if (isOver && canDrop) {
       classes.push('drop-active');
     } else if (isOver && !canDrop) {
       classes.push('drop-invalid');
     }
-    
-    if (!children && showPlaceholder) {
+
+    if (!hasChildren && showPlaceholder) {
       classes.push('empty');
     }
-    
+
     return classes.join(' ');
-  };
+  }, [canDrop, isOver, className, hasChildren, showPlaceholder]);
+
+  // Log animation state changes when hover state changes
+  React.useEffect(() => {
+    if (isOver || canDrop) {
+      const animationId = `dropzone-animation-${Date.now()}`;
+      uiActionLogger.startPerformanceTimer(animationId);
+      
+      // Log animation start
+      setTimeout(() => {
+        const performance = uiActionLogger.endPerformanceTimer(animationId);
+        if (performance) {
+          uiActionLogger.logUIAction(
+            UIActionEventType.STATE_CHANGE,
+            'DropZone',
+            {
+              changeType: 'pile_update',
+              changedElements: [`dropzone-animation-${position.zone}-${position.index}`]
+            },
+            false,
+            false,
+            {
+              ...performance,
+              animationDuration: performance.operationDuration
+            }
+          );
+        }
+      }, 100); // Small delay to capture animation
+    }
+  }, [isOver, canDrop, position]);
 
   return (
     <motion.div
@@ -117,10 +308,11 @@ export const DropZone: React.FC<DropZoneProps> = ({
         stiffness: 300,
         damping: 30
       }}
+
     >
       {children}
       
-      {!children && showPlaceholder && (
+      {!hasChildren && showPlaceholder && (
         <div className="drop-zone-placeholder">
           <div className="placeholder-content">
             {placeholder}
@@ -134,6 +326,16 @@ export const DropZone: React.FC<DropZoneProps> = ({
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.8 }}
+          onAnimationStart={() => {
+            uiActionLogger.logUIAction(
+              UIActionEventType.STATE_CHANGE,
+              'DropZone',
+              {
+                changeType: 'pile_update',
+                changedElements: [`drop-indicator-show-${position.zone}-${position.index}`]
+              }
+            );
+          }}
         >
           <div className="drop-indicator-content">
             Drop {draggedCard?.getRankName()} of {draggedCard?.getSuitName()}
@@ -147,6 +349,16 @@ export const DropZone: React.FC<DropZoneProps> = ({
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.8 }}
+          onAnimationStart={() => {
+            uiActionLogger.logUIAction(
+              UIActionEventType.STATE_CHANGE,
+              'DropZone',
+              {
+                changeType: 'pile_update',
+                changedElements: [`drop-invalid-indicator-show-${position.zone}-${position.index}`]
+              }
+            );
+          }}
         >
           <div className="drop-invalid-content">
             Invalid move

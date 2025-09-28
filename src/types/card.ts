@@ -5,7 +5,7 @@
 export type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades';
 export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
 
-export interface Card {
+export interface ICard {
   suit: Suit;
   rank: Rank;
   faceUp: boolean;
@@ -23,18 +23,18 @@ export interface Position {
 export interface Move {
   from: Position;
   to: Position;
-  cards: Card[];
+  cards: ICard[];
   timestamp: Date;
   autoMove: boolean;
 }
 
 export interface GameState {
   gameType: 'klondike' | 'spider' | 'freecell';
-  tableau: Card[][];
-  foundation: Card[][];
-  stock?: Card[];
-  waste?: Card[];
-  freeCells?: Card[];
+  tableau: ICard[][];
+  foundation: ICard[][];
+  stock?: ICard[];
+  waste?: ICard[];
+  freeCells?: ICard[];
   moves: Move[];
   score: number;
   timeStarted: Date;
