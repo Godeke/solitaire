@@ -27,6 +27,8 @@ describe('RendererLogger', () => {
       warn: vi.spyOn(console, 'warn').mockImplementation(() => {}),
       error: vi.spyOn(console, 'error').mockImplementation(() => {}),
     };
+    mockElectronAPI.log.mockResolvedValue(undefined);
+    mockElectronAPI.setLogLevel.mockResolvedValue(undefined);
     vi.clearAllMocks();
   });
 
@@ -91,13 +93,18 @@ describe('RendererLogger', () => {
 
   it('should respect log level filtering', () => {
     logger.setLogLevel(LogLevel.WARN);
-    
+
     logger.debug('TEST', 'Debug message');
     logger.info('TEST', 'Info message');
     logger.warn('TEST', 'Warning message');
     logger.error('TEST', 'Error message');
-    
+
     expect(mockElectronAPI.log).toHaveBeenCalledTimes(2); // Only WARN and ERROR
+  });
+
+  it('propagates log level changes to the main process', () => {
+    logger.setLogLevel(LogLevel.ERROR);
+    expect(mockElectronAPI.setLogLevel).toHaveBeenCalledWith(LogLevel.ERROR);
   });
 
   it('should handle logging when electronAPI throws errors', () => {
@@ -123,11 +130,19 @@ describe('RendererLogger', () => {
 
   it('should uppercase category names', () => {
     logger.info('test', 'Message with lowercase category');
-    
+
     expect(mockElectronAPI.log).toHaveBeenCalledWith(
       expect.objectContaining({
         category: 'TEST'
       })
     );
+  });
+
+  it('tracks renderer logging performance metrics', () => {
+    logger.info('TEST', 'Performance check');
+    const metrics = logger.getPerformanceMetrics();
+
+    expect(metrics.count).toBeGreaterThan(0);
+    expect(metrics.totalDuration).toBeGreaterThanOrEqual(0);
   });
 });

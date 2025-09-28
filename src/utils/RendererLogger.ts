@@ -13,16 +13,28 @@ export interface LogEntry {
   data?: any;
 }
 
+interface RendererLoggerPerformanceStats {
+  count: number;
+  totalDuration: number;
+  maxDuration: number;
+}
+
 /**
  * Renderer process logger that sends logs to main process via IPC
  * Falls back to console logging if IPC is not available
  */
 export class RendererLogger {
   private static instance: RendererLogger;
-  private logLevel: LogLevel = LogLevel.DEBUG;
+  private logLevel: LogLevel;
   private sessionId: string;
+  private performanceStats: RendererLoggerPerformanceStats = {
+    count: 0,
+    totalDuration: 0,
+    maxDuration: 0
+  };
 
   private constructor() {
+    this.logLevel = this.determineDefaultLogLevel();
     this.sessionId = new Date().toISOString();
     this.info('RENDERER', 'Renderer logger initialized');
   }
@@ -36,7 +48,36 @@ export class RendererLogger {
 
   public setLogLevel(level: LogLevel): void {
     this.logLevel = level;
+    try {
+      const result = window.electronAPI?.setLogLevel?.(level);
+      if (result && typeof (result as Promise<void>).then === 'function') {
+        (result as Promise<void>).catch(() => {
+          /* swallow errors - console logging will provide visibility */
+        });
+      }
+    } catch {
+      // Ignore IPC errors - renderer logging still functions locally
+    }
     this.info('RENDERER', 'Log level changed', { newLevel: LogLevel[level] });
+  }
+
+  public getLogLevel(): LogLevel {
+    return this.logLevel;
+  }
+
+  public getPerformanceMetrics(): {
+    count: number;
+    totalDuration: number;
+    averageDuration: number;
+    maxDuration: number;
+  } {
+    const { count, totalDuration, maxDuration } = this.performanceStats;
+    return {
+      count,
+      totalDuration,
+      averageDuration: count > 0 ? totalDuration / count : 0,
+      maxDuration
+    };
   }
 
   public debug(category: string, message: string, data?: any): void {
@@ -60,6 +101,8 @@ export class RendererLogger {
       return;
     }
 
+    const start = this.getTimestamp();
+
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
@@ -71,7 +114,10 @@ export class RendererLogger {
     // Try to send to main process via IPC
     try {
       if (window.electronAPI?.log) {
-        window.electronAPI.log(entry);
+        const result = window.electronAPI.log(entry);
+        if (result && typeof (result as Promise<void>).then === 'function') {
+          (result as Promise<void>).catch(() => this.logToConsole(entry));
+        }
       } else {
         // Fallback to console logging
         this.logToConsole(entry);
@@ -80,6 +126,9 @@ export class RendererLogger {
       // Fallback to console logging
       this.logToConsole(entry);
     }
+
+    const duration = this.getTimestamp() - start;
+    this.recordPerformance(duration);
   }
 
   private logToConsole(entry: LogEntry): void {
@@ -100,6 +149,35 @@ export class RendererLogger {
         console.error(logMessage, entry.data || '');
         break;
     }
+  }
+
+  private recordPerformance(duration: number): void {
+    this.performanceStats.count += 1;
+    this.performanceStats.totalDuration += duration;
+    if (duration > this.performanceStats.maxDuration) {
+      this.performanceStats.maxDuration = duration;
+    }
+  }
+
+  private determineDefaultLogLevel(): LogLevel {
+    const explicit = (window as any)?.SOLITAIRE_LOG_LEVEL as string | undefined;
+    if (explicit) {
+      const normalized = explicit.toUpperCase();
+      if (normalized in LogLevel) {
+        return LogLevel[normalized as keyof typeof LogLevel];
+      }
+    }
+
+    const nodeEnv = typeof process !== 'undefined' ? process.env?.NODE_ENV : undefined;
+    return nodeEnv === 'production' ? LogLevel.INFO : LogLevel.DEBUG;
+  }
+
+  private getTimestamp(): number {
+    if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+      return performance.now();
+    }
+
+    return Date.now();
   }
 }
 
