@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { UIActionEvent, UIActionEventType, ReplayResult } from '../types/UIActionLogging';
+import { UIActionEvent, UIActionEventType, MoveValidationResult, ReplayResult } from '../types/UIActionLogging';
 import { logUserInteraction, logError } from '../utils/RendererLogger';
+import { filterUIActionEvents, prepareVisualizationData, UIActionLogFilterCriteria } from '../utils';
 import './ReplayAnalyzer.css';
 
 export interface ReplayAnalyzerProps {
@@ -28,6 +29,29 @@ interface EventStatistics {
   timeSpan: { start: string; end: string };
 }
 
+const isErrorEvent = (event: UIActionEvent): boolean => {
+  const validation = event.data?.validationResult as MoveValidationResult | boolean | undefined;
+
+  if (typeof validation === 'boolean') {
+    return validation === false;
+  }
+
+  if (validation && typeof validation === 'object') {
+    if (validation.isValid === false) {
+      return true;
+    }
+    if (validation.reason && validation.reason.toLowerCase().includes('invalid')) {
+      return true;
+    }
+  }
+
+  if (event.data?.moveSuccess === false) {
+    return true;
+  }
+
+  return false;
+};
+
 export const ReplayAnalyzer: React.FC<ReplayAnalyzerProps> = ({
   events,
   replayResult,
@@ -46,96 +70,65 @@ export const ReplayAnalyzer: React.FC<ReplayAnalyzerProps> = ({
   });
 
   // Calculate event statistics
-  const statistics = useMemo((): EventStatistics => {
+  const overallVisualization = useMemo(() => prepareVisualizationData(events), [events]);
+
+  const filteredEvents = useMemo(() => {
     if (events.length === 0) {
-      return {
-        totalEvents: 0,
-        eventTypeBreakdown: {},
-        componentBreakdown: {},
-        averageProcessingTime: 0,
-        errorCount: 0,
-        timeSpan: { start: '', end: '' }
-      };
+      return [];
     }
 
-    const eventTypeBreakdown: Record<string, number> = {};
-    const componentBreakdown: Record<string, number> = {};
-    let totalProcessingTime = 0;
-    let errorCount = 0;
+    const criteria: UIActionLogFilterCriteria = {
+      eventTypes: filter.eventTypes.length > 0 ? filter.eventTypes : undefined,
+      components: filter.components.length > 0 ? filter.components : undefined,
+      timeRange: filter.timeRange,
+      searchText: filter.searchText || undefined,
+      predicate:
+        filter.hasErrors === null
+          ? undefined
+          : (event: UIActionEvent) => {
+              const hasError = isErrorEvent(event);
+              return filter.hasErrors ? hasError : !hasError;
+            }
+    };
 
-    events.forEach(event => {
-      // Count event types
-      eventTypeBreakdown[event.type] = (eventTypeBreakdown[event.type] || 0) + 1;
-      
-      // Count components
-      componentBreakdown[event.component] = (componentBreakdown[event.component] || 0) + 1;
-      
-      // Sum processing times
-      if (event.performance?.operationDuration) {
-        totalProcessingTime += event.performance.operationDuration;
-      }
-      
-      // Count errors (events with validation failures or error data)
-      if (event.data.validationResult === false || event.type.includes('error')) {
-        errorCount++;
-      }
-    });
+    return filterUIActionEvents(events, criteria);
+  }, [events, filter]);
+
+  const filteredVisualization = useMemo(
+    () => prepareVisualizationData(filteredEvents),
+    [filteredEvents]
+  );
+
+  const statistics = useMemo((): EventStatistics => {
+    const overallAnalysis = overallVisualization.analysis;
+    const filteredAnalysis = filteredVisualization.analysis;
+    const errorCount = filteredEvents.filter(isErrorEvent).length;
 
     return {
-      totalEvents: events.length,
-      eventTypeBreakdown,
-      componentBreakdown,
-      averageProcessingTime: totalProcessingTime / events.length,
+      totalEvents: overallAnalysis.counts.totalEvents,
+      eventTypeBreakdown: overallAnalysis.counts.byType,
+      componentBreakdown: overallAnalysis.counts.byComponent,
+      averageProcessingTime: filteredAnalysis.performance.averageDuration,
       errorCount,
       timeSpan: {
-        start: events[0]?.timestamp || '',
-        end: events[events.length - 1]?.timestamp || ''
+        start: overallAnalysis.timeframe.start ?? '',
+        end: overallAnalysis.timeframe.end ?? ''
       }
     };
-  }, [events]);
+  }, [overallVisualization, filteredVisualization, filteredEvents]);
 
-  // Filter events based on current filter settings
-  const filteredEvents = useMemo(() => {
-    let filtered = events;
+  const anomalyPreview = useMemo(() => filteredVisualization.analysis.anomalies.slice(0, 5), [filteredVisualization]);
 
-    // Filter by event types
-    if (filter.eventTypes.length > 0) {
-      filtered = filtered.filter(event => filter.eventTypes.includes(event.type));
-    }
+  const slowEventPreview = useMemo(() => filteredVisualization.analysis.performance.slowEvents.slice(0, 5), [filteredVisualization]);
 
-    // Filter by components
-    if (filter.components.length > 0) {
-      filtered = filtered.filter(event => filter.components.includes(event.component));
-    }
-
-    // Filter by time range
-    if (filter.timeRange.start) {
-      filtered = filtered.filter(event => event.timestamp >= filter.timeRange.start!);
-    }
-    if (filter.timeRange.end) {
-      filtered = filtered.filter(event => event.timestamp <= filter.timeRange.end!);
-    }
-
-    // Filter by error status
-    if (filter.hasErrors !== null) {
-      filtered = filtered.filter(event => {
-        const hasError = event.data.validationResult === false || event.type.includes('error');
-        return filter.hasErrors ? hasError : !hasError;
-      });
-    }
-
-    // Filter by search text
-    if (filter.searchText) {
-      const searchLower = filter.searchText.toLowerCase();
-      filtered = filtered.filter(event => 
-        event.type.toLowerCase().includes(searchLower) ||
-        event.component.toLowerCase().includes(searchLower) ||
-        JSON.stringify(event.data).toLowerCase().includes(searchLower)
-      );
-    }
-
-    return filtered;
-  }, [events, filter]);
+  const topComponents = useMemo(
+    () =>
+      filteredVisualization.componentPerformance
+        .filter(entry => entry.averageDuration > 0)
+        .sort((a, b) => b.averageDuration - a.averageDuration)
+        .slice(0, 5),
+    [filteredVisualization]
+  );
 
   // Notify parent of filter changes
   React.useEffect(() => {
@@ -249,6 +242,55 @@ export const ReplayAnalyzer: React.FC<ReplayAnalyzerProps> = ({
           </select>
         </div>
       </div>
+
+      {(anomalyPreview.length > 0 || slowEventPreview.length > 0 || topComponents.length > 0) && (
+        <div className="analyzer-insights">
+          {anomalyPreview.length > 0 && (
+            <div className="insight-panel" data-testid="anomaly-preview">
+              <h4>Detected Anomalies</h4>
+              <ul>
+                {anomalyPreview.map((anomaly, index) => (
+                  <li key={`${anomaly.type}-${anomaly.eventId ?? index}`}>
+                    <span className="anomaly-type">{anomaly.type}</span>
+                    <span className="anomaly-message">{anomaly.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {(slowEventPreview.length > 0 || topComponents.length > 0) && (
+            <div className="insight-panel" data-testid="performance-preview">
+              <h4>Performance Highlights</h4>
+              {slowEventPreview.length > 0 && (
+                <div className="insight-subsection">
+                  <h5>Slow Events</h5>
+                  <ul>
+                    {slowEventPreview.map(item => (
+                      <li key={item.event.id}>
+                        <span>{item.event.type} · {item.event.component}</span>
+                        <span>{item.durationMs.toFixed(1)}ms</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {topComponents.length > 0 && (
+                <div className="insight-subsection">
+                  <h5>Average Duration by Component</h5>
+                  <ul>
+                    {topComponents.map(entry => (
+                      <li key={entry.component}>
+                        <span>{entry.component}</span>
+                        <span>{Number.isFinite(entry.averageDuration) ? entry.averageDuration.toFixed(1) : '0.0'}ms</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="analyzer-content">
         <div className="events-list">
@@ -384,3 +426,4 @@ export const ReplayAnalyzer: React.FC<ReplayAnalyzerProps> = ({
 };
 
 export default ReplayAnalyzer;
+

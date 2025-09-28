@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ReplayAnalyzer from '../components/ReplayAnalyzer';
 import { UIActionEvent, UIActionEventType, ReplayResult } from '../types/UIActionLogging';
@@ -105,19 +105,21 @@ describe('ReplayAnalyzer', () => {
     it('renders event list with correct information', () => {
       render(<ReplayAnalyzer {...defaultProps} />);
       
-      // Check for event rows
-      expect(screen.getByTestId('event-row-0')).toBeInTheDocument();
-      expect(screen.getByTestId('event-row-1')).toBeInTheDocument();
-      expect(screen.getByTestId('event-row-2')).toBeInTheDocument();
-      
-      // Check event details
-      expect(screen.getByText('drag_start')).toBeInTheDocument();
-      expect(screen.getByText('drag_drop')).toBeInTheDocument();
-      expect(screen.getByText('move_attempt')).toBeInTheDocument();
-      
-      expect(screen.getByText('CardRenderer')).toBeInTheDocument();
-      expect(screen.getByText('DropZone')).toBeInTheDocument();
-      expect(screen.getByText('KlondikeEngine')).toBeInTheDocument();
+      const row0 = screen.getByTestId('event-row-0');
+      const row1 = screen.getByTestId('event-row-1');
+      const row2 = screen.getByTestId('event-row-2');
+
+      expect(row0).toBeInTheDocument();
+      expect(row1).toBeInTheDocument();
+      expect(row2).toBeInTheDocument();
+
+      expect(within(row0).getByText('drag_start')).toBeInTheDocument();
+      expect(within(row1).getByText('drag_drop')).toBeInTheDocument();
+      expect(within(row2).getByText('move_attempt')).toBeInTheDocument();
+
+      expect(within(row0).getByText('CardRenderer')).toBeInTheDocument();
+      expect(within(row1).getByText('DropZone')).toBeInTheDocument();
+      expect(within(row2).getByText('KlondikeEngine')).toBeInTheDocument();
     });
 
     it('renders replay result summary when provided', () => {
@@ -145,10 +147,8 @@ describe('ReplayAnalyzer', () => {
       const eventRow = screen.getByTestId('event-row-0');
       fireEvent.click(eventRow);
       
-      await waitFor(() => {
-        expect(screen.getByTestId('event-details')).toBeInTheDocument();
-      });
-      
+      const details = await screen.findByTestId('event-details');
+      expect(details).toBeInTheDocument();
       expect(defaultProps.onEventSelect).toHaveBeenCalledWith(mockEvents[0], 0);
     });
 
@@ -158,12 +158,11 @@ describe('ReplayAnalyzer', () => {
       const eventRow = screen.getByTestId('event-row-0');
       fireEvent.click(eventRow);
       
-      await waitFor(() => {
-        expect(screen.getByText('Event Details')).toBeInTheDocument();
-        expect(screen.getByText('event-1')).toBeInTheDocument();
-        expect(screen.getByText('drag_start')).toBeInTheDocument();
-        expect(screen.getByText('CardRenderer')).toBeInTheDocument();
-      });
+      const details = await screen.findByTestId('event-details');
+      expect(within(details).getByText('Event Details')).toBeInTheDocument();
+      expect(within(details).getByText('event-1')).toBeInTheDocument();
+      expect(within(details).getByText('drag_start')).toBeInTheDocument();
+      expect(within(details).getByText('CardRenderer')).toBeInTheDocument();
     });
 
     it('closes event details when close button is clicked', async () => {
@@ -173,9 +172,7 @@ describe('ReplayAnalyzer', () => {
       const eventRow = screen.getByTestId('event-row-0');
       fireEvent.click(eventRow);
       
-      await waitFor(() => {
-        expect(screen.getByTestId('event-details')).toBeInTheDocument();
-      });
+      await screen.findByTestId('event-details');
       
       // Close details
       const closeButton = screen.getByText('×');
@@ -239,11 +236,10 @@ describe('ReplayAnalyzer', () => {
       const eventRow = screen.getByTestId('event-row-0');
       fireEvent.click(eventRow);
       
-      await waitFor(() => {
-        expect(screen.getByText('Performance Metrics')).toBeInTheDocument();
-        expect(screen.getByText('15.5ms')).toBeInTheDocument(); // Duration
-        expect(screen.getByText('8.2ms')).toBeInTheDocument(); // Render time
-      });
+      const details = await screen.findByTestId('event-details');
+      expect(within(details).getByText('Performance Metrics')).toBeInTheDocument();
+      expect(within(details).getByText(/15\.5/)).toBeInTheDocument();
+      expect(within(details).getByText(/8\.2/)).toBeInTheDocument();
     });
 
     it('shows duration in event list', () => {

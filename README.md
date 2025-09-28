@@ -108,3 +108,33 @@ Log files are stored in:
 - **Windows**: `%APPDATA%/solitaire-game-collection/logs/`
 - **macOS**: `~/Library/Application Support/solitaire-game-collection/logs/`
 - **Linux**: `~/.config/solitaire-game-collection/logs/`
+
+## Developer Debugging Toolkit
+
+The enhanced UI action logging system includes a set of developer utilities that streamline debugging sessions and regression investigations:
+
+- **Log analysis:** `analyzeUIActionEvents` and `prepareVisualizationData` summarise interaction patterns, anomalies, and performance trends for any captured event sequence.
+- **Advanced filtering & search:** `filterUIActionEvents` and `filterLogFileEntries` handle large in-memory datasets and on-disk log files without loading everything at once.
+- **Interaction visualisation data:** `buildTimelineSeries`, `buildInteractionGraph`, and `buildComponentPerformanceHeatmap` generate data structures that the UI (e.g., `ReplayAnalyzer`) can render to highlight slow or error-prone flows.
+- **Automated test generation:** `generateReplayTestCases` and `createVitestTestFile` turn captured logs into replay-based Vitest suites, making it easy to lock in regressions.
+
+### Quick usage example
+
+```ts
+import {
+  analyzeUIActionEvents,
+  filterUIActionEvents,
+  generateReplayTestCases,
+  createVitestTestFile
+} from './src/utils';
+
+const filtered = filterUIActionEvents(events, { searchText: 'drag_drop', performanceAboveMs: 120 });
+const analysis = analyzeUIActionEvents(filtered);
+const cases = generateReplayTestCases(filtered, { grouping: 'time-gap', timeGapThresholdMs: 5000 });
+const testFileSource = createVitestTestFile(cases, { replayEngineImportPath: '../utils/UIActionReplayEngine' });
+```
+
+See `src/utils/debugging/` for the complete toolkit and `ReplayAnalyzer` for an example integration that surfaces anomaly summaries within the UI.
+
+
+

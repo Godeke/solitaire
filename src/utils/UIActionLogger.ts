@@ -17,6 +17,26 @@ import {
   generateEventId,
   createTimestamp
 } from '../types/UIActionLogging';
+import {
+  analyzeUIActionEvents,
+  UIActionLogAnalysisOptions,
+  UIActionLogAnalysisReport
+} from './debugging/UIActionLogAnalyzer';
+import {
+  filterUIActionEvents,
+  searchUIActionEvents,
+  UIActionLogFilterCriteria,
+  UIActionLogSearchOptions
+} from './debugging/UIActionLogFilter';
+import {
+  generateReplayTestCases,
+  GeneratedTestCase,
+  TestGenerationOptions
+} from './debugging/UIActionLogTestGenerator';
+import {
+  prepareVisualizationData,
+  VisualizationPreparedData
+} from './debugging/UIActionLogVisualizer';
 
 type DispatchMode = 'summary' | 'individual';
 
@@ -1055,6 +1075,41 @@ export class UIActionLogger {
       });
       return false;
     }
+  }
+
+  /**
+   * Provide a full analysis report for the currently buffered events.
+   */
+  public analyzeEvents(options?: UIActionLogAnalysisOptions): UIActionLogAnalysisReport {
+    return analyzeUIActionEvents(this.eventBuffer, options);
+  }
+
+  /**
+   * Filter the buffered events using advanced criteria.
+   */
+  public filterLoggedEvents(criteria: UIActionLogFilterCriteria): UIActionEvent[] {
+    return filterUIActionEvents(this.eventBuffer, criteria);
+  }
+
+  /**
+   * Search the buffered events using free-text queries.
+   */
+  public searchLoggedEvents(query: string, options?: UIActionLogSearchOptions): UIActionEvent[] {
+    return searchUIActionEvents(this.eventBuffer, query, options);
+  }
+
+  /**
+   * Generate replay-driven Vitest cases from the buffered events.
+   */
+  public generateReplayTestCases(options?: TestGenerationOptions): GeneratedTestCase[] {
+    return generateReplayTestCases(this.eventBuffer, options);
+  }
+
+  /**
+   * Prepare visualization-friendly data structures from the buffered events.
+   */
+  public prepareVisualizationData(): VisualizationPreparedData {
+    return prepareVisualizationData(this.eventBuffer);
   }
 
   /**
