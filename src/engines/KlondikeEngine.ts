@@ -1024,13 +1024,13 @@ export class KlondikeEngine extends BaseGameEngine {
           for (let i = column.length - 1; i >= 0; i--) {
             const card = column[i];
             if (!card.faceUp) break;
-            
+
             card.draggable = true;
-            
+
             // Check if this card can be moved with the cards below it
             if (i < column.length - 1) {
               const nextCard = column[i + 1];
-              if (!card.canStackOn(nextCard)) {
+              if (!nextCard.canStackOn(card)) {
                 break; // Sequence broken
               }
             }

@@ -162,6 +162,51 @@ describe('KlondikeEngine', () => {
 
       expect(engine.validateMove(fromPos, toPos, faceDownCard)).toBe(false);
     });
+
+    it('should allow moving valid tableau sequences onto eligible columns', () => {
+      const sevenOfClubs = new Card('clubs', 7, true);
+      const sixOfHearts = new Card('hearts', 6, true);
+      const fiveOfClubs = new Card('clubs', 5, true);
+      const eightOfDiamonds = new Card('diamonds', 8, true);
+
+      const customState: GameState = {
+        gameType: 'klondike',
+        tableau: [
+          [],
+          [],
+          [sevenOfClubs, sixOfHearts, fiveOfClubs],
+          [],
+          [eightOfDiamonds],
+          [],
+          []
+        ],
+        foundation: [[], [], [], []],
+        stock: [],
+        waste: [],
+        freeCells: [],
+        moves: [],
+        score: 0,
+        timeStarted: new Date()
+      };
+
+      customState.tableau.forEach((column, columnIndex) => {
+        column.forEach((card, cardIndex) => {
+          card.setPosition({ zone: 'tableau', index: columnIndex, cardIndex });
+        });
+      });
+
+      engine.setGameState(customState);
+      (engine as unknown as { updateCardDraggability: () => void }).updateCardDraggability();
+
+      expect(sevenOfClubs.draggable).toBe(true);
+      expect(sixOfHearts.draggable).toBe(true);
+      expect(fiveOfClubs.draggable).toBe(true);
+
+      const fromPos: Position = { zone: 'tableau', index: 2 };
+      const toPos: Position = { zone: 'tableau', index: 4 };
+
+      expect(engine.validateMove(fromPos, toPos, sevenOfClubs)).toBe(true);
+    });
   });
 
   describe('Move Execution', () => {
