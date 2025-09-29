@@ -74,20 +74,20 @@ export const DropZone: React.FC<DropZoneProps> = ({
         }
 
         // Log the drop attempt
-        const performance = uiActionLogger.endPerformanceTimer(operationId);
+        const performanceMetrics = uiActionLogger.endPerformanceTimer(operationId);
         uiActionLogger.logDragDrop(
           'DropZone',
           item.card,
           sourcePosition,
           position,
           validationResult,
-          performance
+          performanceMetrics
         );
 
         // Execute the drop callback if provided
         if (onCardDrop) {
           const dropResult = onCardDrop(item.card, sourcePosition, position);
-          
+
           // Log the drop execution result
           uiActionLogger.logMoveExecuted(
             'DropZone',
@@ -95,7 +95,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
             position,
             [item.card],
             'user',
-            performance
+            performanceMetrics
           );
 
           // If drop was rejected, log the failure
@@ -104,7 +104,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
               'DropZone',
               'pile_update',
               [`drop-rejected-${position.zone}-${position.index}`],
-              performance
+              performanceMetrics
             );
           }
         }
@@ -160,17 +160,17 @@ export const DropZone: React.FC<DropZoneProps> = ({
           };
 
           // Log the hover/validation event
-          const performance = uiActionLogger.endPerformanceTimer(operationId);
+          const performanceMetrics = uiActionLogger.endPerformanceTimer(operationId);
           uiActionLogger.logDragHover(
             'DropZone',
             item.card,
             position,
             validationResult,
-            performance
+            performanceMetrics
           );
         } else {
           // Log hover without validation
-          const performance = uiActionLogger.endPerformanceTimer(operationId);
+          const performanceMetrics = uiActionLogger.endPerformanceTimer(operationId);
           uiActionLogger.logDragHover(
             'DropZone',
             item.card,
@@ -180,7 +180,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
               reason: 'No validation required',
               validationTime: 0
             },
-            performance
+            performanceMetrics
           );
         }
 
@@ -238,7 +238,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
       uiActionLogger.startPerformanceTimer(hoverOperationId);
       
       // Log hover enter event
-      const performance = uiActionLogger.endPerformanceTimer(hoverOperationId);
+      const performanceMetrics = uiActionLogger.endPerformanceTimer(hoverOperationId);
       uiActionLogger.logUIAction(
         UIActionEventType.DRAG_HOVER,
         'DropZone',
@@ -257,7 +257,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
         },
         false,
         false,
-        performance
+        performanceMetrics
       );
     }
   }, [isOver, canDrop, draggedCard, position]);
@@ -290,8 +290,8 @@ export const DropZone: React.FC<DropZoneProps> = ({
       
       // Log animation start
       setTimeout(() => {
-        const performance = uiActionLogger.endPerformanceTimer(animationId);
-        if (performance) {
+        const performanceMetrics = uiActionLogger.endPerformanceTimer(animationId);
+        if (performanceMetrics) {
           uiActionLogger.logUIAction(
             UIActionEventType.STATE_CHANGE,
             'DropZone',
@@ -302,8 +302,8 @@ export const DropZone: React.FC<DropZoneProps> = ({
             false,
             false,
             {
-              ...performance,
-              animationDuration: performance.operationDuration
+              ...performanceMetrics,
+              animationDuration: performanceMetrics.operationDuration
             }
           );
         }
