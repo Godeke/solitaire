@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useDrop } from 'react-dnd';
 import { motion } from 'framer-motion';
 import { Card } from '../utils/Card';
@@ -40,7 +40,8 @@ export const DropZone: React.FC<DropZoneProps> = ({
   placeholder = 'Drop cards here',
   showPlaceholder = true
 }) => {
-  const ref = useRef<HTMLDivElement | null>(null);
+  const hasChildren = React.Children.count(children) > 0;
+
 
   // Enhanced drop handler with comprehensive logging
   const handleDrop = useCallback(withPerformanceLogging(
@@ -209,10 +210,27 @@ export const DropZone: React.FC<DropZoneProps> = ({
     })
   });
 
-  const dropRef = useCallback((node: HTMLDivElement | null) => {
-    ref.current = node;
+  const dropTargetRef = useCallback((node: HTMLDivElement | null) => {
+    if (hasChildren) {
+      drop(null);
+      return;
+    }
+
     drop(node);
-  }, [drop]);
+  }, [drop, hasChildren]);
+
+  const targetLabel = useMemo(() => {
+    switch (position.zone) {
+      case 'foundation':
+        return `foundation ${position.index + 1}`;
+      case 'tableau':
+        return `${hasChildren ? 'column' : 'empty column'} ${position.index + 1}`;
+      default:
+        return `${position.zone} ${position.index + 1}`;
+    }
+  }, [position, hasChildren]);
+
+
   // Log hover state changes for detailed interaction tracking
   React.useEffect(() => {
     if (draggedCard && isOver) {
@@ -243,8 +261,6 @@ export const DropZone: React.FC<DropZoneProps> = ({
       );
     }
   }, [isOver, canDrop, draggedCard, position]);
-
-  const hasChildren = React.Children.count(children) > 0;
 
   const getDropZoneClasses = useCallback(() => {
     const classes = ['drop-zone', className];
@@ -297,7 +313,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
 
   return (
     <motion.div
-      ref={dropRef}
+      ref={dropTargetRef}
       className={getDropZoneClasses()}
       style={style}
       initial={{ scale: 1, backgroundColor: 'rgba(0, 0, 0, 0)' }}
@@ -314,6 +330,12 @@ export const DropZone: React.FC<DropZoneProps> = ({
       }}
 
     >
+      <div
+        ref={dropTargetRef}
+        className="drop-zone-surface"
+        style={{ pointerEvents: hasChildren ? 'none' : 'auto' }}
+      />
+
       {children}
       
       {!hasChildren && showPlaceholder && (
@@ -342,7 +364,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
           }}
         >
           <div className="drop-indicator-content">
-            Drop {draggedCard?.getRankName()} of {draggedCard?.getSuitName()}
+            Drop onto {targetLabel}
           </div>
         </motion.div>
       )}
@@ -365,7 +387,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
           }}
         >
           <div className="drop-invalid-content">
-            Invalid move
+            Cannot drop onto {targetLabel}
           </div>
         </motion.div>
       )}
