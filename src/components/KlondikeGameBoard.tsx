@@ -91,7 +91,7 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
   const handleCardMove = useCallback((card: Card, from: Position, to: Position): boolean => {
     console.log('\n🎯 ===== DRAG & DROP ATTEMPT =====');
     logGameState();
-    
+
     console.log('🎯 MOVE DETAILS:', {
       card: {
         id: card.id,
@@ -106,18 +106,20 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
       timestamp: new Date().toISOString()
     });
 
-    const success = engine.validateMove(from, to, card);
-    
+    const engineCard = engine.findCardById(card.id) ?? card;
+    const success = engine.validateMove(from, to, engineCard);
+
     console.log('✅ MOVE VALIDATION RESULT:', {
       success,
       card: `${card.getRankName()} of ${card.getSuitName()}`,
       from: `${from.zone}[${from.index}]`,
-      to: `${to.zone}[${to.index}]`
+      to: `${to.zone}[${to.index}]`,
+      reason: success ? 'Move approved by engine' : 'Move rejected by engine'
     });
 
     if (success) {
       console.log('🚀 EXECUTING MOVE...');
-      const newGameState = engine.executeMove(from, to, card);
+      const newGameState = engine.executeMove(from, to, engineCard);
       setGameState({ ...newGameState });
       setSelectedCard(null);
       setValidMoves([]);
@@ -125,6 +127,11 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
       console.log('===== END MOVE =====\n');
       return true;
     } else {
+      const details = engine.debugValidateMove(from, to, engineCard);
+      console.log('❌ MOVE REJECTED - Invalid according to game rules', {
+        reason: details.reason,
+        ruleViolations: details.ruleViolations
+      });
       console.log('❌ MOVE REJECTED - Invalid according to game rules');
       console.log('===== END MOVE =====\n');
     }
@@ -165,9 +172,66 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
     }
   }, [engine, gameState.stock, selectedCard]);
 
-  const isValidDropTarget = useCallback((targetPosition: Position, draggedCard: Card): boolean => {
-    return engine.validateMove(draggedCard.position, targetPosition, draggedCard);
-  }, [engine]);
+  const isValidDropTarget = useCallback((targetPosition: Position, draggedCard: Card, sourcePosition: Position): boolean => {
+    switch (targetPosition.zone) {
+      case 'foundation': {
+        const pile = gameState.foundation[targetPosition.index] || [];
+        if (pile.length === 0) {
+          const result = draggedCard.rank === 1;
+          console.log('🧪 FOUNDATION CHECK (empty)', {
+            card: `${draggedCard.getRankName()} of ${draggedCard.getSuitName()}`,
+            rank: draggedCard.rank,
+            result
+          });
+          return result;
+        }
+        const topCard = pile[pile.length - 1] as Card;
+        const result = draggedCard.suit === topCard.suit && draggedCard.rank === topCard.rank + 1;
+        console.log('🧪 FOUNDATION CHECK (stack)', {
+          card: `${draggedCard.getRankName()} of ${draggedCard.getSuitName()}`,
+          topCard: `${topCard.getRankName()} of ${topCard.getSuitName()}`,
+          suitsMatch: draggedCard.suit === topCard.suit,
+          ranksSequential: draggedCard.rank === topCard.rank + 1,
+          result
+        });
+        return result;
+      }
+      case 'tableau': {
+        const column = gameState.tableau[targetPosition.index] || [];
+        if (column.length === 0) {
+          const result = draggedCard.rank === 13;
+          console.log('🧪 TABLEAU CHECK (empty)', {
+            card: `${draggedCard.getRankName()} of ${draggedCard.getSuitName()}`,
+            rank: draggedCard.rank,
+            result
+          });
+          return result;
+        }
+        const topCard = column[column.length - 1] as Card;
+        const result = draggedCard.canStackOn(topCard);
+        console.log('🧪 TABLEAU CHECK (stack)', {
+          card: `${draggedCard.getRankName()} of ${draggedCard.getSuitName()}`,
+          topCard: `${topCard.getRankName()} of ${topCard.getSuitName()}`,
+          result
+        });
+        return result;
+      }
+      default: {
+        const engineCard = engine.findCardById(draggedCard.id) ?? draggedCard;
+        const validation = engine.debugValidateMove(sourcePosition, targetPosition, engineCard);
+        console.log('🔍 DROP VALIDATION CHECK', {
+          card: `${draggedCard.getRankName()} of ${draggedCard.getSuitName()}`,
+          engineCardPosition: engineCard.position,
+          from: sourcePosition,
+          to: targetPosition,
+          allowed: validation.isValid,
+          reason: validation.reason,
+          ruleViolations: validation.ruleViolations
+        });
+        return validation.isValid;
+      }
+    }
+  }, [engine, gameState.foundation, gameState.tableau]);
 
   const isHighlighted = useCallback((position: Position): boolean => {
     return validMoves.some(move => 
@@ -191,7 +255,7 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
         <DropZone
           position={position}
           onCardDrop={handleCardMove}
-          isValidDropTarget={(card) => isValidDropTarget(position, card)}
+          isValidDropTarget={(card, from) => isValidDropTarget(position, card, from)}
           className={`tableau-drop-zone ${isHighlighted(position) ? 'highlighted' : ''}`}
           placeholder={`Column ${columnIndex + 1}`}
           showPlaceholder={column.length === 0}
@@ -202,7 +266,7 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
               card={card}
               onCardMove={handleCardMove}
               onCardClick={handleCardClick}
-              isValidDropTarget={false}
+              isValidDropTarget={cardIndex === column.length - 1 ? ((draggedCard, from) => isValidDropTarget(card.position, draggedCard, from)) : false}
               className={`tableau-card ${selectedCard?.id === card.id ? 'selected' : ''}`}
               style={{
                 position: 'absolute',
@@ -226,7 +290,7 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
         <DropZone
           position={position}
           onCardDrop={handleCardMove}
-          isValidDropTarget={(card) => isValidDropTarget(position, card)}
+          isValidDropTarget={(card, from) => isValidDropTarget(position, card, from)}
           className={`foundation-drop-zone ${isHighlighted(position) ? 'highlighted' : ''}`}
           placeholder={`Foundation ${pileIndex + 1}`}
           showPlaceholder={!topCard}
@@ -237,7 +301,7 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
               card={topCard}
               onCardMove={handleCardMove}
               onCardClick={handleCardClick}
-              isValidDropTarget={false}
+              isValidDropTarget={(draggedCard, from) => isValidDropTarget(topCard.position, draggedCard, from)}
               className={`foundation-card ${selectedCard?.id === topCard.id ? 'selected' : ''}`}
             />
           )}

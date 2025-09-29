@@ -219,17 +219,18 @@ describe('CardRenderer', () => {
     expect(screen.getByText('Drop Here')).toBeInTheDocument();
   });
 
-  it('applies drop target classes when isValidDropTarget is true', () => {
+  it('accepts functional drop validators without crashing', () => {
     const card = createTestCard('hearts', 5);
+    const validator = vi.fn().mockReturnValue(true);
 
-    render(
-      <TestWrapper>
-        <CardRenderer card={card} isValidDropTarget={true} />
-      </TestWrapper>
-    );
+    expect(() =>
+      render(
+        <TestWrapper>
+          <CardRenderer card={card} isValidDropTarget={validator} />
+        </TestWrapper>
+      )
+    ).not.toThrow();
 
-    // Note: drop-target-valid class is only applied during drag operations
-    // This test verifies the component accepts the isValidDropTarget prop
     expect(document.querySelector('.card-renderer')).toBeInTheDocument();
   });
 

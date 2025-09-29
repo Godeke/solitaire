@@ -307,9 +307,9 @@ describe('DropZone', () => {
 
     it('maintains functionality with complex validation', () => {
       const position = createTestPosition();
-      const complexValidator = vi.fn().mockImplementation((card: Card) => {
+      const complexValidator = vi.fn().mockImplementation((card: Card, _from: Position) => {
         // Simulate complex validation logic
-        return card.getRank() <= 13 && card.getRank() >= 1;
+        return card.rank <= 13 && card.rank >= 1;
       });
 
       expect(() => {

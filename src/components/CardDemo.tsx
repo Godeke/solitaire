@@ -74,7 +74,7 @@ export const CardDemo: React.FC = () => {
     }
   };
 
-  const isValidDropTarget = (draggedCard: Card, targetPosition: Position): boolean => {
+  const isValidDropTarget = (draggedCard: Card, targetPosition: Position, _from: Position): boolean => {
     // Simple validation for demo
     return targetPosition.zone === 'foundation';
   };
@@ -142,7 +142,7 @@ export const CardDemo: React.FC = () => {
                     key={`foundation-${index}`}
                     position={position}
                     onCardDrop={handleCardMove}
-                    isValidDropTarget={(card) => isValidDropTarget(card, position)}
+                    isValidDropTarget={(card, from) => isValidDropTarget(card, position, from)}
                     placeholder={`Foundation ${index + 1}`}
                     className="foundation-pile"
                     showPlaceholder={cardsInZone.length === 0}

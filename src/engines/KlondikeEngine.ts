@@ -126,6 +126,13 @@ export class KlondikeEngine extends BaseGameEngine {
   }
 
   /**
+   * Expose detailed validation info (used by UI debugging tools)
+   */
+  debugValidateMove(from: Position, to: Position, card: Card): MoveValidationResult {
+    return this.validateMoveWithLogging(from, to, card);
+  }
+
+  /**
    * Internal validation method with detailed logging and reasoning
    */
   private validateMoveWithLogging(from: Position, to: Position, card: Card): MoveValidationResult {

@@ -139,6 +139,58 @@ export abstract class BaseGameEngine implements GameEngine {
   }
 
   /**
+   * Locate a card in the current game state by its unique id
+   */
+  findCardById(cardId: string): Card | null {
+    if (!cardId) {
+      return null;
+    }
+
+    // Search tableau columns
+    for (const column of this.gameState.tableau) {
+      const match = column.find(card => card.id === cardId);
+      if (match) {
+        return match;
+      }
+    }
+
+    // Search foundation piles
+    for (const pile of this.gameState.foundation) {
+      const match = pile.find(card => card.id === cardId);
+      if (match) {
+        return match;
+      }
+    }
+
+    // Search waste pile
+    if (this.gameState.waste) {
+      const match = this.gameState.waste.find(card => card.id === cardId);
+      if (match) {
+        return match;
+      }
+    }
+
+    // Search stock pile
+    if (this.gameState.stock) {
+      const match = this.gameState.stock.find(card => card.id === cardId);
+      if (match) {
+        return match;
+      }
+    }
+
+    // Search free cells if present
+    if (this.gameState.freeCells) {
+      for (const cellCard of this.gameState.freeCells) {
+        if (cellCard && cellCard.id === cardId) {
+          return cellCard;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Remove cards from a specific position
    */
   protected removeCardsFromPosition(position: Position, count: number): Card[] {

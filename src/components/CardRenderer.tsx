@@ -1,5 +1,6 @@
 import React, { useRef, useCallback } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
+import type { DropTargetMonitor } from 'react-dnd';
 import { motion } from 'framer-motion';
 import { Card } from '../utils/Card';
 import { Position } from '../types/card';
@@ -11,7 +12,7 @@ export interface CardRendererProps {
   card: Card;
   onCardMove?: (card: Card, from: Position, to: Position) => boolean;
   onCardClick?: (card: Card) => void;
-  isValidDropTarget?: boolean;
+  isValidDropTarget?: boolean | ((draggedCard: Card, from: Position) => boolean);
   showDropZone?: boolean;
   style?: React.CSSProperties;
   className?: string;
@@ -54,6 +55,37 @@ export const CardRenderer: React.FC<CardRendererProps> = ({
     return uiLogger.endPerformanceTimer(timerId);
   }, [uiLogger]);
 
+  const evaluateDropTarget = useCallback((draggedCard: Card, sourcePosition?: Position): { canDrop: boolean; reason: string } => {
+    const resolvedSource: Position = sourcePosition ?? { ...draggedCard.position };
+
+    if (draggedCard.id === card.id) {
+      return {
+        canDrop: false,
+        reason: 'Cannot drop card on itself'
+      };
+    }
+
+    if (typeof isValidDropTarget === 'function') {
+      const canStack = isValidDropTarget(draggedCard, resolvedSource);
+      return {
+        canDrop: canStack,
+        reason: canStack ? 'Validator accepted drop target' : 'Validator rejected drop target',
+      };
+    }
+
+    if (isValidDropTarget) {
+      return {
+        canDrop: true,
+        reason: 'Marked as valid drop target'
+      };
+    }
+
+    return {
+      canDrop: false,
+      reason: 'Not marked as valid drop target'
+    };
+  }, [card.id, isValidDropTarget]);
+
   // Drag functionality with comprehensive logging
   const [{ isDragging }, drag] = useDrag({
     type: CARD_TYPE,
@@ -63,7 +95,7 @@ export const CardRenderer: React.FC<CardRendererProps> = ({
       const dragItem = {
         type: CARD_TYPE,
         card,
-        from: card.position
+        from: { ...card.position }
       };
       
       // Log drag start with performance metrics
@@ -148,11 +180,15 @@ export const CardRenderer: React.FC<CardRendererProps> = ({
   // Drop functionality with comprehensive logging
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: CARD_TYPE,
-    drop: (): DropResult => {
+    drop: (_item: DragItem | undefined, monitor: DropTargetMonitor<DragItem, DropResult>): DropResult | undefined => {
+      if (!monitor.isOver({ shallow: true })) {
+        return undefined;
+      }
+
       const dropTimerId = startPerformanceTimer('drop-target');
       const dropResult = { to: card.position };
       const performance = endPerformanceTimer(dropTimerId);
-      
+
       // Log drop target activation
       uiLogger.debug('CardRenderer', `Drop target activated for ${card.getRankName()} of ${card.getSuitName()}`, {
         position: card.position,
@@ -168,30 +204,28 @@ export const CardRenderer: React.FC<CardRendererProps> = ({
     },
     canDrop: (item: DragItem) => {
       const canDropTimerId = startPerformanceTimer('can-drop-check');
-      
-      // Basic validation - more complex validation should be in the game engine
-      const canDropHere = item.card.id !== card.id && isValidDropTarget;
+
+      const { canDrop: canDropHere, reason: validationReason } = evaluateDropTarget(item.card, item.from);
       const performance = endPerformanceTimer(canDropTimerId);
-      
-      // Create validation result for logging
+
       const validationResult: MoveValidationResult = {
         isValid: canDropHere,
-        reason: item.card.id === card.id ? 'Cannot drop card on itself' : 
-                !isValidDropTarget ? 'Not a valid drop target' : 'Valid drop target',
+        reason: validationReason,
         validationTime: performance?.operationDuration || 0
       };
-      
-      // Log hover event with validation result
+
       uiLogger.logDragHover('CardRenderer', item.card, card.position, validationResult, performance);
-      
+
       console.log('🎯 CAN DROP CHECK:', {
         draggedCard: `${item.card.getRankName()} of ${item.card.getSuitName()}`,
         dropTarget: `${card.getRankName()} of ${card.getSuitName()}`,
         sameCard: item.card.id === card.id,
-        isValidDropTarget,
+        validatorType: typeof isValidDropTarget,
+        source: item.from ?? { ...item.card.position },
+        validationReason,
         canDropHere
       });
-      
+
       return canDropHere;
     },
     collect: (monitor) => ({
