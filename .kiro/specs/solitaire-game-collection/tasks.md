@@ -72,11 +72,6 @@
   - _Requirements: 4.3, 4.4, 4.5, 5.4, 5.5_
 
 - [x] 10. Add audio system and sound effects
-
-
-
-
-
   - Integrate audio library or use Web Audio API
   - Create sound effect files for card moves, wins, and invalid moves
   - Implement AudioManager class with play/stop/mute functionality

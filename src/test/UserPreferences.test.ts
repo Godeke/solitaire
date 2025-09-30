@@ -23,6 +23,12 @@ describe('UserPreferencesManager', () => {
     // Reset singleton instance
     (UserPreferencesManager as any).instance = null;
     
+    // Reset localStorage mocks to default behavior
+    mockLocalStorage.getItem.mockReturnValue(null);
+    mockLocalStorage.setItem.mockImplementation(() => {});
+    mockLocalStorage.removeItem.mockImplementation(() => {});
+    mockLocalStorage.clear.mockImplementation(() => {});
+    
     preferencesManager = UserPreferencesManager.getInstance();
   });
 

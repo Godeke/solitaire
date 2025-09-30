@@ -36,6 +36,17 @@ const mockAudioBuffer = {
 global.AudioContext = vi.fn(() => mockAudioContext) as any;
 global.webkitAudioContext = vi.fn(() => mockAudioContext) as any;
 
+// Mock window AudioContext for the AudioManager
+Object.defineProperty(window, 'AudioContext', {
+  writable: true,
+  value: vi.fn(() => mockAudioContext)
+});
+
+Object.defineProperty(window, 'webkitAudioContext', {
+  writable: true,
+  value: vi.fn(() => mockAudioContext)
+});
+
 // Mock fetch for audio file loading
 global.fetch = vi.fn();
 
@@ -48,6 +59,14 @@ describe('AudioManager', () => {
     // Reset mock implementations
     mockAudioContext.createBuffer.mockReturnValue(mockAudioBuffer);
     mockAudioContext.createBufferSource.mockReturnValue(mockBufferSource);
+    mockAudioContext.createGain.mockReturnValue(mockGainNode);
+    mockAudioContext.decodeAudioData.mockResolvedValue(mockAudioBuffer);
+    mockAudioContext.resume.mockResolvedValue(undefined);
+    mockAudioContext.close.mockResolvedValue(undefined);
+    
+    // Reset window mocks
+    (window.AudioContext as any) = vi.fn(() => mockAudioContext);
+    (window as any).webkitAudioContext = vi.fn(() => mockAudioContext);
     mockAudioContext.createGain.mockReturnValue(mockGainNode);
     mockAudioContext.decodeAudioData.mockResolvedValue(mockAudioBuffer);
     mockAudioContext.resume.mockResolvedValue(undefined);

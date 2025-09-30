@@ -211,9 +211,8 @@ describe('GameControls', () => {
       rerender(<div />); // Clean up for next iteration
     });
   });
-});
-  de
-scribe('Audio Controls', () => {
+
+  describe('Audio Controls', () => {
     it('renders audio controls by default', async () => {
       render(<GameControls {...defaultProps} />);
       

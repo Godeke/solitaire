@@ -52,13 +52,12 @@ npm run package         # Package desktop application
 
 ### Testing
 ```bash
-npm test               # Run all tests once (equivalent to vitest --run)
-npm run test:watch     # Run tests in watch mode (equivalent to vitest)
+npx vitest run         # Run all tests once (equivalent to vitest --run)
 npx vitest run src/test/SpecificTest.test.ts  # Run specific test file
 npx vitest run --reporter=verbose             # Run with verbose output
 ```
 
-**Important**: Do NOT use `npm test -- --run` syntax as this project uses Vitest, not Jest. Always use the commands above or direct `npx vitest` commands.
+**Important**: Do NOT use `npm test -- --run` syntax as this project uses Vitest, not Jest. Always use the commands above.
 
 ## Build Configuration
 
