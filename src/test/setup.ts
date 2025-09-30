@@ -309,17 +309,26 @@ const MockAudioManager = vi.fn().mockImplementation((config = {}) => {
     ...config
   };
 
-  return {
+  const instance = {
     playSound: vi.fn().mockResolvedValue(undefined),
-    setEnabled: vi.fn((enabled) => { mockConfig.enabled = enabled; }),
-    setVolume: vi.fn((volume) => { mockConfig.volume = Math.max(0, Math.min(1, volume)); }),
+    setEnabled: vi.fn((enabled) => { 
+      mockConfig.enabled = enabled; 
+    }),
+    setVolume: vi.fn((volume) => { 
+      mockConfig.volume = Math.max(0, Math.min(1, volume)); 
+    }),
     getVolume: vi.fn(() => mockConfig.volume),
     isEnabled: vi.fn(() => mockConfig.enabled),
-    toggleAudio: vi.fn(() => { mockConfig.enabled = !mockConfig.enabled; return mockConfig.enabled; }),
+    toggleAudio: vi.fn(() => { 
+      mockConfig.enabled = !mockConfig.enabled; 
+      return mockConfig.enabled; 
+    }),
     getConfig: vi.fn(() => ({ ...mockConfig })),
     stopAllSounds: vi.fn(),
     dispose: vi.fn()
   };
+
+  return instance;
 });
 
 // Create singleton instance for getAudioManager
@@ -342,6 +351,8 @@ vi.mock('../utils/AudioManager', () => createAudioManagerMock());
 vi.mock('src/utils/AudioManager', () => createAudioManagerMock());
 vi.mock('@utils/AudioManager', () => createAudioManagerMock());
 vi.mock('./utils/AudioManager', () => createAudioManagerMock());
+vi.mock('../../utils/AudioManager', () => createAudioManagerMock());
+vi.mock('../../../utils/AudioManager', () => createAudioManagerMock());
 
 // Mock RendererLogger with proper singleton behavior
 const mockRendererLoggerInstance = {
