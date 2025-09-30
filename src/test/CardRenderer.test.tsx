@@ -292,6 +292,9 @@ describe('CardRenderer', () => {
       const card = createTestCard('hearts', 5);
       const onCardClick = vi.fn();
 
+      // Clear event buffer before test
+      uiLogger.clearEventBuffer();
+
       render(
         <TestWrapper>
           <CardRenderer card={card} onCardClick={onCardClick} />

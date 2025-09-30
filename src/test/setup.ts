@@ -88,7 +88,7 @@ const mockUIActionLoggerInstance = {
   logCardClick: vi.fn((component: string, card: any, clickCoordinates: any, performance?: any) => {
     const event = {
       id: `test-click-${Date.now()}`,
-      type: 'CARD_CLICK',
+      type: 'card_click',
       timestamp: new Date().toISOString(),
       component,
       data: { card, clickTarget: `card-${card?.id || 'test'}`, clickCoordinates },
@@ -100,7 +100,7 @@ const mockUIActionLoggerInstance = {
   logDragStart: vi.fn((component: string, card: any, sourcePosition: any, performance?: any) => {
     const event = {
       id: `test-drag-start-${Date.now()}`,
-      type: 'DRAG_START',
+      type: 'drag_start',
       timestamp: new Date().toISOString(),
       component,
       data: { card, sourcePosition },
@@ -112,7 +112,7 @@ const mockUIActionLoggerInstance = {
   logDragHover: vi.fn((component: string, card: any, targetPosition: any, validationResult?: any, performance?: any) => {
     const event = {
       id: `test-drag-hover-${Date.now()}`,
-      type: 'DRAG_HOVER',
+      type: 'drag_hover',
       timestamp: new Date().toISOString(),
       component,
       data: { card, targetPosition, validationResult },
@@ -124,7 +124,7 @@ const mockUIActionLoggerInstance = {
   logDragDrop: vi.fn((component: string, card: any, sourcePosition: any, targetPosition: any, validationResult: any, performance?: any) => {
     const event = {
       id: `test-drag-drop-${Date.now()}`,
-      type: 'DRAG_DROP',
+      type: 'drag_drop',
       timestamp: new Date().toISOString(),
       component,
       data: { card, sourcePosition, targetPosition, validationResult },
@@ -136,7 +136,7 @@ const mockUIActionLoggerInstance = {
   logDragCancel: vi.fn((component: string, card: any, reason: string, performance?: any) => {
     const event = {
       id: `test-drag-cancel-${Date.now()}`,
-      type: 'DRAG_CANCEL',
+      type: 'drag_cancel',
       timestamp: new Date().toISOString(),
       component,
       data: { card, moveReason: reason },
@@ -148,7 +148,7 @@ const mockUIActionLoggerInstance = {
   logMoveAttempt: vi.fn((component: string, sourcePosition: any, targetPosition: any, cards: any[], validationResult: any, performance?: any) => {
     const event = {
       id: `test-move-attempt-${Date.now()}`,
-      type: 'MOVE_ATTEMPT',
+      type: 'move_attempt',
       timestamp: new Date().toISOString(),
       component,
       data: { sourcePosition, targetPosition, validationResult, moveSuccess: validationResult?.isValid || false },
@@ -160,7 +160,7 @@ const mockUIActionLoggerInstance = {
   logMoveExecuted: vi.fn((component: string, sourcePosition: any, targetPosition: any, cards: any[], moveType?: string, performance?: any) => {
     const event = {
       id: `test-move-executed-${Date.now()}`,
-      type: 'MOVE_EXECUTED',
+      type: 'move_executed',
       timestamp: new Date().toISOString(),
       component,
       data: { sourcePosition, targetPosition, moveType: moveType || 'user', moveSuccess: true },
@@ -236,7 +236,9 @@ const createUIActionLoggerMock = () => ({
   withPerformanceLogging: mockWithPerformanceLogging,
   uiActionLogger: mockUIActionLoggerInstance,
   UIActionLogger: {
-    getInstance: vi.fn(() => mockUIActionLoggerInstance)
+    getInstance: vi.fn(() => mockUIActionLoggerInstance),
+    // Allow tests to reset the singleton instance
+    instance: undefined
   },
   logDragOperation: vi.fn((component: string, operation: string, card: any, position?: any, validationResult?: any) => ({
     id: `test-drag-${operation}`,

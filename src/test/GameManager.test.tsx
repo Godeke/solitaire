@@ -246,13 +246,12 @@ describe('GameManager', () => {
     });
   });
 
-  it('renders placeholder for unimplemented games', async () => {
+  it('renders Spider game board for spider game type', async () => {
     render(<GameManager initialState="game" initialGameType="spider" />);
     
     await waitFor(() => {
-      expect(screen.getByTestId('game-placeholder')).toBeInTheDocument();
-      expect(screen.getByText('Spider Solitaire')).toBeInTheDocument();
-      expect(screen.getByText('This game variant is not yet implemented.')).toBeInTheDocument();
+      expect(screen.getByTestId('spider-game-board')).toBeInTheDocument();
+      expect(screen.getByTestId('game-view')).toBeInTheDocument();
     });
   });
 
