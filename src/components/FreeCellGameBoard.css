@@ -1,0 +1,551 @@
+.freecell-game-board {
+  width: 100%;
+  height: 100vh;
+  background: linear-gradient(135deg, #1a4c2e 0%, #2d5a3d 100%);
+  padding: 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+
+.game-info {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.score, .moves {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.game-stats {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: bold;
+  color: #90EE90;
+  padding: 2px 8px;
+  background: rgba(144, 238, 144, 0.2);
+  border-radius: 10px;
+  border: 1px solid rgba(144, 238, 144, 0.3);
+}
+
+.game-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.new-game-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #228B22 0%, #32CD32 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(34, 139, 34, 0.3);
+}
+
+.new-game-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(34, 139, 34, 0.4);
+}
+
+.new-game-btn:active {
+  transform: translateY(0);
+}
+
+.game-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  min-height: 0;
+}
+
+.top-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  height: 140px;
+  padding: 0 20px;
+}
+
+.freecells-area, .foundations-area {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.freecells-label, .foundations-label {
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.freecells-container, .foundations-container {
+  display: flex;
+  gap: 10px;
+}
+
+/* Free Cells */
+.freecell-slot {
+  width: 80px;
+  height: 110px;
+  position: relative;
+}
+
+.freecell-drop-zone {
+  width: 100%;
+  height: 100%;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  position: relative;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.freecell-drop-zone.empty {
+  background: rgba(144, 238, 144, 0.1);
+  border-color: rgba(144, 238, 144, 0.4);
+}
+
+.freecell-drop-zone.occupied {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.freecell-drop-zone.highlighted {
+  border-color: #90EE90;
+  background: rgba(144, 238, 144, 0.2);
+  box-shadow: 0 0 15px rgba(144, 238, 144, 0.5);
+}
+
+.freecell-drop-zone.can-drop {
+  border-color: rgba(144, 238, 144, 0.8);
+  background: rgba(144, 238, 144, 0.15);
+}
+
+.freecell-drop-zone.drop-active {
+  border-color: #90EE90;
+  background: rgba(144, 238, 144, 0.3);
+  transform: scale(1.05);
+}
+
+.freecell-drop-zone.drop-invalid {
+  border-color: #f44336;
+  background: rgba(244, 67, 54, 0.2);
+}
+
+.freecell-card {
+  width: 75px;
+  transition: all 0.3s ease;
+}
+
+.freecell-card.selected {
+  transform: scale(1.1);
+  z-index: 1000 !important;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+}
+
+/* Foundation Piles */
+.foundation-pile {
+  width: 80px;
+  height: 110px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.foundation-drop-zone {
+  width: 100%;
+  height: 100%;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  position: relative;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.foundation-drop-zone.empty {
+  background: rgba(255, 215, 0, 0.1);
+  border-color: rgba(255, 215, 0, 0.4);
+}
+
+.foundation-drop-zone.occupied {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.foundation-drop-zone.highlighted {
+  border-color: #FFD700;
+  background: rgba(255, 215, 0, 0.2);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+}
+
+.foundation-drop-zone.can-drop {
+  border-color: rgba(255, 215, 0, 0.8);
+  background: rgba(255, 215, 0, 0.15);
+}
+
+.foundation-drop-zone.drop-active {
+  border-color: #FFD700;
+  background: rgba(255, 215, 0, 0.3);
+  transform: scale(1.05);
+}
+
+.foundation-drop-zone.drop-invalid {
+  border-color: #f44336;
+  background: rgba(244, 67, 54, 0.2);
+}
+
+.foundation-card {
+  width: 75px;
+  transition: all 0.3s ease;
+}
+
+.foundation-card.selected {
+  transform: scale(1.1);
+  z-index: 1000 !important;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+}
+
+.foundation-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 5px;
+}
+
+.foundation-suit {
+  font-size: 16px;
+  font-weight: bold;
+  color: white;
+}
+
+.foundation-count {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+/* Tableau Area */
+.tableau-area {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 400px;
+  padding: 0 10px;
+}
+
+.tableau-column {
+  flex: 1;
+  min-height: 400px;
+  max-width: 100px;
+  position: relative;
+}
+
+.tableau-drop-zone {
+  width: 85px;
+  min-height: 110px;
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.tableau-drop-zone.highlighted {
+  border-color: #90EE90;
+  background: rgba(144, 238, 144, 0.2);
+  box-shadow: 0 0 15px rgba(144, 238, 144, 0.5);
+}
+
+.tableau-drop-zone.can-drop {
+  border-color: rgba(144, 238, 144, 0.8);
+  background: rgba(144, 238, 144, 0.1);
+}
+
+.tableau-drop-zone.drop-active {
+  border-color: #90EE90;
+  background: rgba(144, 238, 144, 0.3);
+  transform: scale(1.02);
+}
+
+.tableau-drop-zone.drop-invalid {
+  border-color: #f44336;
+  background: rgba(244, 67, 54, 0.2);
+}
+
+.tableau-card {
+  width: 85px;
+  left: 0;
+  transition: all 0.3s ease;
+}
+
+.tableau-card.selected {
+  transform: scale(1.1);
+  z-index: 1000 !important;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+}
+
+/* Card Selection and Highlighting */
+.selected {
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+  transform: scale(1.05);
+}
+
+/* Move Hint */
+.move-hint {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 15px 25px;
+  border-radius: 10px;
+  font-size: 14px;
+  text-align: center;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive Design */
+@media (max-width: 1400px) {
+  .freecell-game-board {
+    padding: 15px;
+  }
+  
+  .tableau-area {
+    gap: 10px;
+  }
+  
+  .tableau-column {
+    max-width: 90px;
+  }
+  
+  .tableau-drop-zone, .tableau-card {
+    width: 75px;
+  }
+  
+  .freecell-slot, .foundation-pile {
+    width: 70px;
+    height: 95px;
+  }
+  
+  .freecell-card, .foundation-card {
+    width: 65px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .freecell-game-board {
+    padding: 10px;
+  }
+  
+  .game-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .game-info {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .top-area {
+    flex-direction: column;
+    gap: 20px;
+    height: auto;
+    align-items: center;
+  }
+  
+  .tableau-area {
+    gap: 8px;
+  }
+  
+  .tableau-column {
+    max-width: 80px;
+  }
+  
+  .tableau-drop-zone, .tableau-card {
+    width: 65px;
+  }
+  
+  .freecell-slot, .foundation-pile {
+    width: 60px;
+    height: 80px;
+  }
+  
+  .freecell-card, .foundation-card {
+    width: 55px;
+  }
+}
+
+@media (max-width: 900px) {
+  .tableau-area {
+    gap: 6px;
+  }
+  
+  .tableau-column {
+    max-width: 70px;
+  }
+  
+  .tableau-drop-zone, .tableau-card {
+    width: 55px;
+  }
+  
+  .freecell-slot, .foundation-pile {
+    width: 55px;
+    height: 75px;
+  }
+  
+  .freecell-card, .foundation-card {
+    width: 50px;
+  }
+  
+  .game-stats {
+    display: none; /* Hide on very small screens to save space */
+  }
+}
+
+/* Animation for card movements */
+.tableau-card, .freecell-card, .foundation-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Drop zone animations */
+.drop-zone {
+  transition: all 0.3s ease;
+}
+
+.drop-zone.empty .drop-zone-placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  text-align: center;
+  padding: 10px;
+}
+
+/* Focus styles for accessibility */
+.new-game-btn:focus,
+.freecell-card:focus,
+.foundation-card:focus,
+.tableau-card:focus {
+  outline: 2px solid #90EE90;
+  outline-offset: 2px;
+}
+
+/* FreeCell-specific visual enhancements */
+.freecell-game-board .tableau-card {
+  /* Slightly more spacing for better visibility of sequences */
+  margin-bottom: 0;
+}
+
+.freecell-game-board .tableau-drop-zone.empty {
+  background: rgba(144, 238, 144, 0.05);
+}
+
+/* Free cell availability indicators */
+.freecell-drop-zone.empty::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(144, 238, 144, 0.6);
+  border-radius: 50%;
+  background: rgba(144, 238, 144, 0.1);
+}
+
+.foundation-drop-zone.empty::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  border: 2px solid rgba(255, 215, 0, 0.6);
+  border-radius: 8px;
+  background: rgba(255, 215, 0, 0.1);
+}
+
+/* Sequence movement animation */
+@keyframes sequenceMove {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+  100% { transform: translateY(0); }
+}
+
+.tableau-card.moving-sequence {
+  animation: sequenceMove 0.3s ease-in-out;
+}
+
+/* Win condition animation */
+@keyframes foundationComplete {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.foundation-pile.complete .foundation-drop-zone {
+  animation: foundationComplete 0.5s ease-in-out;
+  border-color: #FFD700;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+}
