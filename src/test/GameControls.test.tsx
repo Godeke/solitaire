@@ -3,23 +3,28 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GameControls } from '../components/GameControls';
 
+// Create mock instances that can be accessed in tests
+const mockAudioManager = {
+  setEnabled: vi.fn(),
+  setVolume: vi.fn(),
+  isEnabled: vi.fn(() => true),
+  getVolume: vi.fn(() => 0.7)
+};
+
+const mockPreferencesManager = {
+  getAudioPreferences: vi.fn(() => ({ enabled: true, volume: 0.7 })),
+  setAudioEnabled: vi.fn(),
+  setAudioVolume: vi.fn()
+};
+
 // Mock AudioManager and UserPreferences
 vi.mock('../utils/AudioManager', () => ({
-  getAudioManager: vi.fn(() => ({
-    setEnabled: vi.fn(),
-    setVolume: vi.fn(),
-    isEnabled: vi.fn(() => true),
-    getVolume: vi.fn(() => 0.7)
-  }))
+  getAudioManager: vi.fn(() => mockAudioManager)
 }));
 
 vi.mock('../utils/UserPreferences', () => ({
   UserPreferencesManager: {
-    getInstance: vi.fn(() => ({
-      getAudioPreferences: vi.fn(() => ({ enabled: true, volume: 0.7 })),
-      setAudioEnabled: vi.fn(),
-      setAudioVolume: vi.fn()
-    }))
+    getInstance: vi.fn(() => mockPreferencesManager)
   }
 }));
 
@@ -45,6 +50,11 @@ describe('GameControls', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockLocalStorage.getItem.mockReturnValue(null);
+    
+    // Reset mock implementations to defaults
+    mockPreferencesManager.getAudioPreferences.mockReturnValue({ enabled: true, volume: 0.7 });
+    mockAudioManager.isEnabled.mockReturnValue(true);
+    mockAudioManager.getVolume.mockReturnValue(0.7);
   });
 
   it('renders basic controls correctly', () => {
@@ -240,13 +250,7 @@ describe('GameControls', () => {
     });
 
     it('displays correct audio toggle button icon when audio is disabled', async () => {
-      const { getAudioManager } = await import('../utils/AudioManager');
-      const { UserPreferencesManager } = await import('../utils/UserPreferences');
-      
-      const mockAudioManager = getAudioManager();
-      const mockPreferencesManager = UserPreferencesManager.getInstance();
-      
-      vi.mocked(mockPreferencesManager.getAudioPreferences).mockReturnValue({
+      mockPreferencesManager.getAudioPreferences.mockReturnValue({
         enabled: false,
         volume: 0.7
       });
@@ -262,12 +266,6 @@ describe('GameControls', () => {
     });
 
     it('toggles audio when toggle button is clicked', async () => {
-      const { getAudioManager } = await import('../utils/AudioManager');
-      const { UserPreferencesManager } = await import('../utils/UserPreferences');
-      
-      const mockAudioManager = getAudioManager();
-      const mockPreferencesManager = UserPreferencesManager.getInstance();
-
       render(<GameControls {...defaultProps} />);
       
       await waitFor(() => {
@@ -293,10 +291,7 @@ describe('GameControls', () => {
     });
 
     it('hides volume slider when audio is disabled', async () => {
-      const { UserPreferencesManager } = await import('../utils/UserPreferences');
-      
-      const mockPreferencesManager = UserPreferencesManager.getInstance();
-      vi.mocked(mockPreferencesManager.getAudioPreferences).mockReturnValue({
+      mockPreferencesManager.getAudioPreferences.mockReturnValue({
         enabled: false,
         volume: 0.7
       });
@@ -309,12 +304,6 @@ describe('GameControls', () => {
     });
 
     it('updates volume when slider is changed', async () => {
-      const { getAudioManager } = await import('../utils/AudioManager');
-      const { UserPreferencesManager } = await import('../utils/UserPreferences');
-      
-      const mockAudioManager = getAudioManager();
-      const mockPreferencesManager = UserPreferencesManager.getInstance();
-
       render(<GameControls {...defaultProps} />);
       
       await waitFor(() => {
@@ -327,10 +316,7 @@ describe('GameControls', () => {
     });
 
     it('displays correct volume in slider title', async () => {
-      const { UserPreferencesManager } = await import('../utils/UserPreferences');
-      
-      const mockPreferencesManager = UserPreferencesManager.getInstance();
-      vi.mocked(mockPreferencesManager.getAudioPreferences).mockReturnValue({
+      mockPreferencesManager.getAudioPreferences.mockReturnValue({
         enabled: true,
         volume: 0.8
       });
@@ -344,10 +330,7 @@ describe('GameControls', () => {
     });
 
     it('initializes with correct audio preferences', async () => {
-      const { UserPreferencesManager } = await import('../utils/UserPreferences');
-      
-      const mockPreferencesManager = UserPreferencesManager.getInstance();
-      vi.mocked(mockPreferencesManager.getAudioPreferences).mockReturnValue({
+      mockPreferencesManager.getAudioPreferences.mockReturnValue({
         enabled: false,
         volume: 0.3
       });
@@ -360,10 +343,7 @@ describe('GameControls', () => {
     });
 
     it('handles audio preference loading errors gracefully', async () => {
-      const { UserPreferencesManager } = await import('../utils/UserPreferences');
-      
-      const mockPreferencesManager = UserPreferencesManager.getInstance();
-      vi.mocked(mockPreferencesManager.getAudioPreferences).mockImplementation(() => {
+      mockPreferencesManager.getAudioPreferences.mockImplementation(() => {
         throw new Error('Preferences loading failed');
       });
 

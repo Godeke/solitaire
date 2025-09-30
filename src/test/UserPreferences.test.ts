@@ -20,7 +20,7 @@ describe('UserPreferencesManager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     
-    // Reset singleton instance
+    // Reset singleton instance completely
     (UserPreferencesManager as any).instance = null;
     
     // Reset localStorage mocks to default behavior
@@ -29,7 +29,11 @@ describe('UserPreferencesManager', () => {
     mockLocalStorage.removeItem.mockImplementation(() => {});
     mockLocalStorage.clear.mockImplementation(() => {});
     
+    // Create fresh instance
     preferencesManager = UserPreferencesManager.getInstance();
+    
+    // Ensure it starts with defaults
+    preferencesManager.resetToDefaults();
   });
 
   afterEach(() => {
@@ -283,6 +287,9 @@ describe('UserPreferencesManager', () => {
     });
 
     it('should handle invalid JSON during import', () => {
+      // First set a known state
+      preferencesManager.setAudioEnabled(true);
+      
       const success = preferencesManager.importPreferences('invalid json');
 
       expect(success).toBe(false);
@@ -291,6 +298,9 @@ describe('UserPreferencesManager', () => {
     });
 
     it('should merge imported preferences with defaults', () => {
+      // Reset to defaults first to ensure clean state
+      preferencesManager.resetToDefaults();
+      
       const partialImport = {
         audio: { enabled: false }
         // Missing other preferences
@@ -323,6 +333,9 @@ describe('UserPreferencesManager', () => {
     });
 
     it('should not allow external modification of preferences', () => {
+      // Ensure we start with a known state
+      preferencesManager.setAudioEnabled(true);
+      
       const prefs = preferencesManager.getPreferences();
       prefs.audio.enabled = false;
 

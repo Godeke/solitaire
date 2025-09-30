@@ -80,7 +80,11 @@ export class UserPreferencesManager {
     }
 
     this.logger.info('PREFERENCES', 'Using default preferences');
-    return { ...DEFAULT_PREFERENCES };
+    return {
+      audio: { ...DEFAULT_PREFERENCES.audio },
+      ui: { ...DEFAULT_PREFERENCES.ui },
+      game: { ...DEFAULT_PREFERENCES.game }
+    };
   }
 
   /**
@@ -120,7 +124,11 @@ export class UserPreferencesManager {
    * Get all preferences
    */
   public getPreferences(): UserPreferences {
-    return { ...this.preferences };
+    return {
+      audio: { ...this.preferences.audio },
+      ui: { ...this.preferences.ui },
+      game: { ...this.preferences.game }
+    };
   }
 
   /**
@@ -210,7 +218,11 @@ export class UserPreferencesManager {
    * Reset all preferences to defaults
    */
   public resetToDefaults(): void {
-    this.preferences = { ...DEFAULT_PREFERENCES };
+    this.preferences = {
+      audio: { ...DEFAULT_PREFERENCES.audio },
+      ui: { ...DEFAULT_PREFERENCES.ui },
+      game: { ...DEFAULT_PREFERENCES.game }
+    };
     this.savePreferences();
     this.logger.info('PREFERENCES', 'Preferences reset to defaults');
   }

@@ -31,10 +31,17 @@ export const GameControls: React.FC<GameControlsProps> = ({
 
   // Initialize audio state from preferences
   useEffect(() => {
-    const preferencesManager = UserPreferencesManager.getInstance();
-    const audioPrefs = preferencesManager.getAudioPreferences();
-    setIsAudioEnabled(audioPrefs.enabled);
-    setAudioVolume(audioPrefs.volume);
+    try {
+      const preferencesManager = UserPreferencesManager.getInstance();
+      const audioPrefs = preferencesManager.getAudioPreferences();
+      setIsAudioEnabled(audioPrefs.enabled);
+      setAudioVolume(audioPrefs.volume);
+    } catch (error) {
+      // Fall back to default values if preferences loading fails
+      console.warn('Failed to load audio preferences, using defaults:', error);
+      setIsAudioEnabled(true);
+      setAudioVolume(0.7);
+    }
   }, []);
 
   const handleToggleAudio = () => {
