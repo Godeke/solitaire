@@ -1,0 +1,283 @@
+/* Card Cascade Animation Styles */
+
+.card-cascade-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.cascade-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    circle at center,
+    rgba(0, 100, 200, 0.1) 0%,
+    rgba(0, 50, 150, 0.05) 50%,
+    transparent 100%
+  );
+}
+
+.cascade-cards-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.cascade-card {
+  border-radius: 8px;
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.3),
+    0 0 20px rgba(255, 255, 255, 0.1);
+  will-change: transform, opacity;
+}
+
+.cascade-card-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cascade-card-face {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f8f8 100%);
+  border: 2px solid #333;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.cascade-card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-family: 'Arial', sans-serif;
+  font-weight: bold;
+}
+
+.cascade-card-rank {
+  font-size: 14px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.cascade-card-suit {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Suit colors */
+.cascade-card-content:has(.cascade-card-suit:contains('♥')),
+.cascade-card-content:has(.cascade-card-suit:contains('♦')) {
+  color: #d32f2f;
+}
+
+.cascade-card-content:has(.cascade-card-suit:contains('♠')),
+.cascade-card-content:has(.cascade-card-suit:contains('♣')) {
+  color: #333;
+}
+
+.cascade-card-back {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, #1a237e 0%, #3949ab 50%, #1a237e 100%);
+  background-size: 20px 20px;
+  background-image: 
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.1) 0px,
+      rgba(255, 255, 255, 0.1) 2px,
+      transparent 2px,
+      transparent 10px
+    );
+  border-radius: 6px;
+  position: relative;
+}
+
+.cascade-card-back::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.cascade-card-glow {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 215, 0, 0.6) 0%,
+    rgba(255, 165, 0, 0.3) 50%,
+    transparent 100%
+  );
+  border-radius: 12px;
+  z-index: -1;
+  will-change: transform, opacity;
+}
+
+.cascade-collection-point {
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 215, 0, 0.8) 0%,
+    rgba(255, 165, 0, 0.4) 40%,
+    rgba(255, 69, 0, 0.2) 70%,
+    transparent 100%
+  );
+  border-radius: 50%;
+  box-shadow: 
+    0 0 50px rgba(255, 215, 0, 0.6),
+    0 0 100px rgba(255, 165, 0, 0.3);
+  will-change: transform, opacity;
+}
+
+.cascade-collection-point::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  background: #ffd700;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+}
+
+.cascade-sparkles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.cascade-sparkle {
+  position: absolute;
+  font-size: 16px;
+  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.8));
+  will-change: transform, opacity;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .cascade-card {
+    width: 45px !important;
+    height: 63px !important;
+  }
+  
+  .cascade-card-rank {
+    font-size: 10px;
+  }
+  
+  .cascade-card-suit {
+    font-size: 14px;
+  }
+  
+  .cascade-collection-point {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .cascade-sparkle {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cascade-card {
+    width: 36px !important;
+    height: 50px !important;
+  }
+  
+  .cascade-card-rank {
+    font-size: 8px;
+  }
+  
+  .cascade-card-suit {
+    font-size: 12px;
+  }
+  
+  .cascade-collection-point {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .cascade-sparkle {
+    font-size: 12px;
+  }
+}
+
+/* Performance optimizations */
+.cascade-card,
+.cascade-card-glow,
+.cascade-collection-point,
+.cascade-sparkle {
+  will-change: transform, opacity;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .cascade-background {
+    background: rgba(0, 0, 0, 0.3);
+  }
+  
+  .cascade-card-face {
+    background: #ffffff;
+    border-color: #000000;
+  }
+  
+  .cascade-card-back {
+    background: #000000;
+  }
+  
+  .cascade-card-glow {
+    background: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.6) 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      transparent 100%
+    );
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .cascade-card,
+  .cascade-card-glow,
+  .cascade-collection-point,
+  .cascade-sparkle {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  .cascade-card {
+    opacity: 0.7;
+    transform: scale(0.8);
+  }
+}

@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { KlondikeGameBoard } from './KlondikeGameBoard';
+import { SpiderGameBoard } from './SpiderGameBoard';
+import { FreeCellGameBoard } from './FreeCellGameBoard';
 import { GameControls } from './GameControls';
 import { MainMenu } from './MainMenu';
 import { ReplayControls } from './ReplayControls';
@@ -537,19 +539,41 @@ export const GameManager: React.FC<GameManagerProps> = ({
             replayMode={isReplayMode}
             replayEngine={replayState.replayEngine}
             replayEvents={replayState.events}
+            // Win animation props
+            enableWinAnimations={true}
           />
         );
       case 'spider':
-      case 'freecell':
-        // TODO: Implement Spider and FreeCell game boards
         return (
-          <div className="game-placeholder" data-testid="game-placeholder">
-            <h2>{currentGameType.charAt(0).toUpperCase() + currentGameType.slice(1)} Solitaire</h2>
-            <p>This game variant is not yet implemented.</p>
-            <button onClick={handleBackToMenu} className="back-button">
-              Back to Menu
-            </button>
-          </div>
+          <SpiderGameBoard
+            key={gameKey}
+            onGameWin={handleGameWin}
+            onScoreChange={handleScoreChange}
+            onMoveCount={handleMoveCountChange}
+            className="game-board"
+            // Replay mode props
+            replayMode={isReplayMode}
+            replayEngine={replayState.replayEngine}
+            replayEvents={replayState.events}
+            // Win animation props
+            enableWinAnimations={true}
+          />
+        );
+      case 'freecell':
+        return (
+          <FreeCellGameBoard
+            key={gameKey}
+            onGameWin={handleGameWin}
+            onScoreChange={handleScoreChange}
+            onMoveCount={handleMoveCountChange}
+            className="game-board"
+            // Replay mode props
+            replayMode={isReplayMode}
+            replayEngine={replayState.replayEngine}
+            replayEvents={replayState.events}
+            // Win animation props
+            enableWinAnimations={true}
+          />
         );
       default:
         return null;

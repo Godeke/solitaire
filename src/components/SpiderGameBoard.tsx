@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { SpiderEngine } from '../engines/SpiderEngine';
 import { CardRenderer } from './CardRenderer';
 import { DropZone } from './DropZone';
+import { WinAnimation } from './WinAnimation';
+import { CardCascadeAnimation } from './CardCascadeAnimation';
 import { Card } from '../utils/Card';
 import { Position, GameState } from '../types/card';
 import { UIActionReplayEngine } from '../utils/UIActionReplayEngine';
@@ -20,6 +22,9 @@ export interface SpiderGameBoardProps {
   replayMode?: boolean;
   replayEngine?: UIActionReplayEngine | null;
   replayEvents?: UIActionEvent[];
+  // Win animation props
+  enableWinAnimations?: boolean;
+  onWinAnimationComplete?: () => void;
 }
 
 export const SpiderGameBoard: React.FC<SpiderGameBoardProps> = ({
@@ -29,12 +34,18 @@ export const SpiderGameBoard: React.FC<SpiderGameBoardProps> = ({
   className = '',
   replayMode = false,
   replayEngine,
-  replayEvents
+  replayEvents,
+  enableWinAnimations = true,
+  onWinAnimationComplete
 }) => {
   const [engine] = useState(() => new SpiderEngine());
   const [gameState, setGameState] = useState<GameState>(() => engine.initializeGame());
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [validMoves, setValidMoves] = useState<Position[]>([]);
+  const [showWinAnimation, setShowWinAnimation] = useState(false);
+  const [showCardCascade, setShowCardCascade] = useState(false);
+  const [gameStartTime] = useState(() => Date.now());
+  const [isGameWon, setIsGameWon] = useState(false);
 
   // Initialize replay mode if enabled
   useEffect(() => {
@@ -63,12 +74,28 @@ export const SpiderGameBoard: React.FC<SpiderGameBoardProps> = ({
     }
   }, [gameState.score, gameState.moves.length, onScoreChange, onMoveCount]);
 
-  // Check for win condition
+  // Check for win condition and trigger animations
   useEffect(() => {
-    if (engine.checkWinCondition() && onGameWin) {
-      onGameWin();
+    const hasWon = engine.checkWinCondition();
+    if (hasWon && !isGameWon) {
+      setIsGameWon(true);
+      
+      if (enableWinAnimations) {
+        // Start with card cascade animation
+        setShowCardCascade(true);
+        
+        // Follow with win celebration after cascade
+        const winAnimationTimer = setTimeout(() => {
+          setShowWinAnimation(true);
+        }, 1500);
+        
+        return () => clearTimeout(winAnimationTimer);
+      } else if (onGameWin) {
+        // If animations are disabled, call win callback immediately
+        onGameWin();
+      }
     }
-  }, [gameState, engine, onGameWin]);
+  }, [gameState, engine, onGameWin, isGameWon, enableWinAnimations]);
 
   // Helper function to log current game state
   const logGameState = useCallback(() => {
@@ -227,7 +254,40 @@ export const SpiderGameBoard: React.FC<SpiderGameBoardProps> = ({
     setGameState({ ...newGameState });
     setSelectedCard(null);
     setValidMoves([]);
+    setShowWinAnimation(false);
+    setShowCardCascade(false);
+    setIsGameWon(false);
   }, [engine]);
+
+  // Get all completed sequence cards for cascade animation
+  const getAllCompletedCards = useCallback((): Card[] => {
+    // In Spider, completed sequences are removed, so we'll use remaining tableau cards
+    const allCards: Card[] = [];
+    gameState.tableau.forEach(column => {
+      allCards.push(...column.filter(card => card.faceUp) as Card[]);
+    });
+    return allCards;
+  }, [gameState.tableau]);
+
+  // Handle card cascade animation completion
+  const handleCardCascadeComplete = useCallback(() => {
+    setShowCardCascade(false);
+    // Trigger main win animation after cascade
+    if (enableWinAnimations) {
+      setShowWinAnimation(true);
+    }
+  }, [enableWinAnimations]);
+
+  // Handle win animation completion
+  const handleWinAnimationComplete = useCallback(() => {
+    setShowWinAnimation(false);
+    if (onWinAnimationComplete) {
+      onWinAnimationComplete();
+    }
+    if (onGameWin) {
+      onGameWin();
+    }
+  }, [onWinAnimationComplete, onGameWin]);
 
   const renderTableauColumn = (columnIndex: number) => {
     const column = gameState.tableau[columnIndex];
@@ -348,10 +408,31 @@ export const SpiderGameBoard: React.FC<SpiderGameBoardProps> = ({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
         >
-          Selected: {(selectedCard as Card).getRankName()} of {(selectedCard as Card).getSuitName()}
+          Selected: {selectedCard.getRankName()} of {selectedCard.getSuitName()}
           <br />
           Valid moves highlighted in green
         </motion.div>
+      )}
+
+      {/* Win Animations */}
+      {enableWinAnimations && (
+        <>
+          <CardCascadeAnimation
+            isVisible={showCardCascade}
+            cards={getAllCompletedCards()}
+            gameType="spider"
+            onAnimationComplete={handleCardCascadeComplete}
+          />
+          
+          <WinAnimation
+            isVisible={showWinAnimation}
+            gameType="spider"
+            score={gameState.score}
+            moves={gameState.moves.length}
+            duration={Date.now() - gameStartTime}
+            onAnimationComplete={handleWinAnimationComplete}
+          />
+        </>
       )}
     </div>
   );

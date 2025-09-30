@@ -140,6 +140,7 @@
 
 
 
+
   - Create Electron main process with proper window configuration
   - Set up window minimum dimensions and resize handling
   - Implement application menu and keyboard shortcuts
@@ -148,7 +149,12 @@
   - Write integration tests for Electron window management
   - _Requirements: 5.1, 5.2, 5.3_
 
-- [ ] 16. Add win animations and celebration effects
+- [x] 16. Add win animations and celebration effects
+
+
+
+
+
   - Create victory animation components using CSS animations or canvas
   - Implement particle effects or card cascade animations for wins
   - Add celebration sound effects and visual feedback
