@@ -5,18 +5,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { SpiderGameBoard } from '../components/SpiderGameBoard';
 import { SpiderEngine } from '../engines/SpiderEngine';
 
-import { vi } from 'vitest';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
+import { vi, describe, it, beforeEach } from 'vitest';
 
 // Mock the audio manager
 vi.mock('../utils/AudioManager', () => ({

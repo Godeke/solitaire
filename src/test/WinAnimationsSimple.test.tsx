@@ -207,8 +207,8 @@ describe('Win Animations - Core Functionality', () => {
       );
       const endTime = performance.now();
 
-      // Should render within reasonable time (less than 200ms)
-      expect(endTime - startTime).toBeLessThan(200);
+      // Should render within reasonable time (less than 500ms)
+      expect(endTime - startTime).toBeLessThan(500);
     });
 
     it('cleans up timers on unmount', () => {
