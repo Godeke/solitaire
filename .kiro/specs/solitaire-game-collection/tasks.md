@@ -135,7 +135,11 @@
   - Write integration tests for FreeCell game board
   - _Requirements: 1.2, 2.1, 3.2_
 
-- [ ] 15. Implement Electron main process and window management
+- [x] 15. Implement Electron main process and window management
+
+
+
+
   - Create Electron main process with proper window configuration
   - Set up window minimum dimensions and resize handling
   - Implement application menu and keyboard shortcuts
