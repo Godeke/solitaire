@@ -7,6 +7,7 @@ import { Card } from '../utils/Card';
 import { Position, GameState } from '../types/card';
 import { UIActionReplayEngine } from '../utils/UIActionReplayEngine';
 import { UIActionEvent } from '../types/UIActionLogging';
+import { getAudioManager } from '../utils/AudioManager';
 import { logGameAction } from '../utils/RendererLogger';
 import './KlondikeGameBoard.css';
 
@@ -88,7 +89,7 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
     console.log(`  Stock: ${gameState.stock?.length || 0} cards`);
   }, [gameState]);
 
-  const handleCardMove = useCallback((card: Card, from: Position, to: Position): boolean => {
+  const handleCardMove = useCallback(async (card: Card, from: Position, to: Position): Promise<boolean> => {
     console.log('\n🎯 ===== DRAG & DROP ATTEMPT =====');
     logGameState();
 
@@ -117,6 +118,9 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
       reason: success ? 'Move approved by engine' : 'Move rejected by engine'
     });
 
+    // Get audio manager for sound effects
+    const audioManager = getAudioManager();
+
     if (success) {
       console.log('🚀 EXECUTING MOVE...');
       const newGameState = engine.executeMove(from, to, engineCard);
@@ -125,6 +129,10 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
       setValidMoves([]);
       console.log('✅ MOVE COMPLETED SUCCESSFULLY');
       console.log('===== END MOVE =====\n');
+      
+      // Play successful move sound
+      await audioManager.playSound('card-move');
+      
       return true;
     } else {
       const details = engine.debugValidateMove(from, to, engineCard);
@@ -134,6 +142,9 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
       });
       console.log('❌ MOVE REJECTED - Invalid according to game rules');
       console.log('===== END MOVE =====\n');
+      
+      // Play invalid move sound
+      await audioManager.playSound('card-invalid');
     }
     return false;
   }, [engine, logGameState]);

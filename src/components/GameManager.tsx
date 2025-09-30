@@ -7,6 +7,8 @@ import { ReplayAnalyzer } from './ReplayAnalyzer';
 import { GameStateManager } from '../utils/GameStateManager';
 import { StatisticsManager, GameCompletionData } from '../utils/StatisticsManager';
 import { UIActionReplayEngine } from '../utils/UIActionReplayEngine';
+import { getAudioManager } from '../utils/AudioManager';
+import { UserPreferencesManager } from '../utils/UserPreferences';
 import { GameState } from '../types/card';
 import { UIActionEvent, ReplayOptions, ReplayResult } from '../types/UIActionLogging';
 import { logUserInteraction, logComponentMount, logComponentUnmount, logError, logGameAction } from '../utils/RendererLogger';
@@ -76,10 +78,22 @@ export const GameManager: React.FC<GameManagerProps> = ({
   const [selectedEvent, setSelectedEvent] = useState<UIActionEvent | null>(null);
   const [filteredEvents, setFilteredEvents] = useState<UIActionEvent[]>([]);
 
-  // Component lifecycle logging
+  // Component lifecycle logging and audio initialization
   useEffect(() => {
     logComponentMount('GameManager', { initialGameType, initialState });
-    return () => logComponentUnmount('GameManager');
+    
+    // Initialize audio manager with user preferences
+    const audioManager = getAudioManager();
+    const preferencesManager = UserPreferencesManager.getInstance();
+    const audioPrefs = preferencesManager.getAudioPreferences();
+    
+    audioManager.setEnabled(audioPrefs.enabled);
+    audioManager.setVolume(audioPrefs.volume);
+    
+    return () => {
+      logComponentUnmount('GameManager');
+      audioManager.dispose();
+    };
   }, []);
 
   // Handle app close - save current game state and record incomplete games
@@ -232,9 +246,13 @@ export const GameManager: React.FC<GameManagerProps> = ({
     GameStateManager.clearGameState(currentGameType);
   }, [currentGameType]);
 
-  const handleGameWin = useCallback(() => {
+  const handleGameWin = useCallback(async () => {
     const completedAt = new Date();
     const duration = gameState ? completedAt.getTime() - gameState.timeStarted.getTime() : 0;
+    
+    // Play win sound effect
+    const audioManager = getAudioManager();
+    await audioManager.playSound('game-win');
     
     logUserInteraction('Game won', 'GameManager', {
       gameType: currentGameType,

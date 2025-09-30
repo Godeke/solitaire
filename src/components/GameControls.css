@@ -148,3 +148,105 @@
     font-size: 11px;
   }
 }
+
+/* Audio Controls */
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 12px;
+}
+
+.audio-toggle-button {
+  min-width: 40px;
+  padding: 8px;
+  background: linear-gradient(135deg, #8e44ad 0%, #7d3c98 100%);
+  font-size: 16px;
+}
+
+.audio-toggle-button:hover:not(.disabled) {
+  background: linear-gradient(135deg, #a569bd 0%, #8e44ad 100%);
+}
+
+.audio-toggle-button.disabled {
+  background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%);
+}
+
+.volume-slider {
+  width: 80px;
+  height: 4px;
+  border-radius: 2px;
+  background: #34495e;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+  background: linear-gradient(135deg, #5dade2 0%, #3498db 100%);
+  transform: scale(1.1);
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.volume-slider::-moz-range-thumb:hover {
+  background: linear-gradient(135deg, #5dade2 0%, #3498db 100%);
+  transform: scale(1.1);
+}
+
+/* Responsive audio controls */
+@media (max-width: 768px) {
+  .audio-controls {
+    gap: 6px;
+    margin-right: 8px;
+  }
+
+  .volume-slider {
+    width: 60px;
+  }
+
+  .audio-toggle-button {
+    min-width: 35px;
+    padding: 6px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .audio-controls {
+    gap: 4px;
+    margin-right: 4px;
+  }
+
+  .volume-slider {
+    width: 50px;
+  }
+
+  .audio-toggle-button {
+    min-width: 30px;
+    padding: 4px;
+    font-size: 12px;
+  }
+}

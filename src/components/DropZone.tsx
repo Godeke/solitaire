@@ -9,7 +9,7 @@ import './DropZone.css';
 
 export interface DropZoneProps {
   position: Position;
-  onCardDrop?: (card: Card, from: Position, to: Position) => boolean;
+  onCardDrop?: (card: Card, from: Position, to: Position) => boolean | Promise<boolean>;
   isValidDropTarget?: (card: Card, from: Position) => boolean;
   children?: React.ReactNode;
   className?: string;
@@ -46,7 +46,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
   // Enhanced drop handler with comprehensive logging
   const handleDrop = useCallback(withPerformanceLogging(
     'dropzone-drop',
-    (item: DragItem): DropResult => {
+    async (item: DragItem): Promise<DropResult> => {
       const operationId = `drop-${Date.now()}`;
       uiActionLogger.startPerformanceTimer(operationId);
 
@@ -86,7 +86,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
 
         // Execute the drop callback if provided
         if (onCardDrop) {
-          const dropResult = onCardDrop(item.card, sourcePosition, position);
+          const dropResult = await onCardDrop(item.card, sourcePosition, position);
 
           // Log the drop execution result
           uiActionLogger.logMoveExecuted(

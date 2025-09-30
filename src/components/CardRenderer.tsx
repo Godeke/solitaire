@@ -10,7 +10,7 @@ import './CardRenderer.css';
 
 export interface CardRendererProps {
   card: Card;
-  onCardMove?: (card: Card, from: Position, to: Position) => boolean;
+  onCardMove?: (card: Card, from: Position, to: Position) => boolean | Promise<boolean>;
   onCardClick?: (card: Card) => void;
   isValidDropTarget?: boolean | ((draggedCard: Card, from: Position) => boolean);
   showDropZone?: boolean;
@@ -136,7 +136,7 @@ export const CardRenderer: React.FC<CardRendererProps> = ({
     collect: (monitor) => ({
       isDragging: monitor.isDragging()
     }),
-    end: (item, monitor) => {
+    end: async (item, monitor) => {
       const dragEndTimerId = startPerformanceTimer('drag-end');
       const dropResult = monitor.getDropResult<DropResult>();
       
@@ -150,7 +150,7 @@ export const CardRenderer: React.FC<CardRendererProps> = ({
         console.log('📞 CALLING onCardMove...');
         
         const moveTimerId = startPerformanceTimer('card-move');
-        const success = onCardMove(item.card, item.from, dropResult.to);
+        const success = await onCardMove(item.card, item.from, dropResult.to);
         const movePerformance = endPerformanceTimer(moveTimerId);
         
         // Create validation result for logging
