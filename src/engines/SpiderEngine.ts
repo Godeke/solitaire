@@ -633,4 +633,61 @@ export class SpiderEngine extends BaseGameEngine {
     getCompletedSequences(): Card[][] {
         return [...this.completedSequences];
     }
+
+    /**
+     * Debug method to get detailed validation information
+     */
+    debugValidateMove(from: Position, to: Position, card: Card): { isValid: boolean; reason: string; ruleViolations?: string[] } {
+        const ruleViolations: string[] = [];
+        let reason = '';
+        let isValid = true;
+
+        // Handle stock to tableau moves (dealing new cards) - special case
+        if (from.zone === 'stock' && to.zone === 'tableau') {
+            const canDeal = this.validateStockDeal();
+            return {
+                isValid: canDeal,
+                reason: canDeal ? 'Stock deal is valid' : 'Cannot deal from stock - empty columns exist',
+                ruleViolations: canDeal ? undefined : ['EMPTY_COLUMNS_EXIST']
+            };
+        }
+
+        // Cannot move face-down cards (except stock to tableau)
+        if (!card.faceUp) {
+            isValid = false;
+            reason = 'Cannot move face-down cards';
+            ruleViolations.push('FACE_DOWN_CARD_MOVE');
+        }
+
+        // Validate source position
+        if (isValid && !this.isValidSourcePosition(from, card)) {
+            isValid = false;
+            reason = 'Invalid source position for card';
+            ruleViolations.push('INVALID_SOURCE_POSITION');
+        }
+
+        // Only tableau to tableau moves are allowed for regular play
+        if (isValid && (from.zone !== 'tableau' || to.zone !== 'tableau')) {
+            isValid = false;
+            reason = 'Only tableau to tableau moves allowed in Spider';
+            ruleViolations.push('INVALID_ZONE_MOVE');
+        }
+
+        // Validate tableau move
+        if (isValid && !this.validateTableauMove(card, to, from)) {
+            isValid = false;
+            reason = 'Invalid tableau move - card cannot be placed on target';
+            ruleViolations.push('INVALID_TABLEAU_PLACEMENT');
+        }
+
+        if (isValid && reason === '') {
+            reason = 'Move is valid according to Spider rules';
+        }
+
+        return {
+            isValid,
+            reason,
+            ruleViolations: ruleViolations.length > 0 ? ruleViolations : undefined
+        };
+    }
 }
