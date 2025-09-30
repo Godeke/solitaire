@@ -8,6 +8,7 @@ export { default as GameControls } from './GameControls';
 export { default as GameManager } from './GameManager';
 export { default as GameManagerDemo } from './GameManagerDemo';
 export { default as MainMenu } from './MainMenu';
+export { default as StatisticsDisplay } from './StatisticsDisplay';
 
 export type { CardRendererProps } from './CardRenderer';
 export type { DropZoneProps } from './DropZone';
@@ -16,3 +17,4 @@ export type { KlondikeGameBoardProps } from './KlondikeGameBoard';
 export type { GameControlsProps } from './GameControls';
 export type { GameManagerProps } from './GameManager';
 export type { MainMenuProps } from './MainMenu';
+export type { StatisticsDisplayProps } from './StatisticsDisplay';

@@ -5,6 +5,7 @@ import { MainMenu } from './MainMenu';
 import { ReplayControls } from './ReplayControls';
 import { ReplayAnalyzer } from './ReplayAnalyzer';
 import { GameStateManager } from '../utils/GameStateManager';
+import { StatisticsManager, GameCompletionData } from '../utils/StatisticsManager';
 import { UIActionReplayEngine } from '../utils/UIActionReplayEngine';
 import { GameState } from '../types/card';
 import { UIActionEvent, ReplayOptions, ReplayResult } from '../types/UIActionLogging';
@@ -81,6 +82,46 @@ export const GameManager: React.FC<GameManagerProps> = ({
     return () => logComponentUnmount('GameManager');
   }, []);
 
+  // Handle app close - save current game state and record incomplete games
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // Save current game state if in progress
+      if (gameState && appState === 'game') {
+        GameStateManager.saveGameState(gameState);
+        
+        // Record incomplete game as loss if not won and has progress
+        if (!isGameWon && (score > 0 || moveCount > 0)) {
+          const completedAt = new Date();
+          const duration = completedAt.getTime() - gameState.timeStarted.getTime();
+          
+          const completionData: GameCompletionData = {
+            gameType: currentGameType,
+            won: false,
+            duration,
+            moves: moveCount,
+            score,
+            completedAt
+          };
+          
+          StatisticsManager.recordGameCompletion(completionData);
+          
+          logUserInteraction('Game abandoned on app close', 'GameManager', {
+            gameType: currentGameType,
+            finalScore: score,
+            totalMoves: moveCount,
+            duration
+          });
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [gameState, appState, isGameWon, score, moveCount, currentGameType]);
+
   // Load saved game state on mount
   useEffect(() => {
     if (appState === 'game') {
@@ -117,6 +158,30 @@ export const GameManager: React.FC<GameManagerProps> = ({
   }, [appState, currentGameType, onStateChange]);
 
   const handleStartGame = useCallback((gameType: GameType) => {
+    // Record incomplete game as loss if switching games mid-play
+    if (gameState && !isGameWon && (score > 0 || moveCount > 0)) {
+      const completedAt = new Date();
+      const duration = completedAt.getTime() - gameState.timeStarted.getTime();
+      
+      const completionData: GameCompletionData = {
+        gameType: currentGameType,
+        won: false,
+        duration,
+        moves: moveCount,
+        score,
+        completedAt
+      };
+      
+      StatisticsManager.recordGameCompletion(completionData);
+      
+      logUserInteraction('Game abandoned', 'GameManager', {
+        gameType: currentGameType,
+        finalScore: score,
+        totalMoves: moveCount,
+        duration
+      });
+    }
+    
     logUserInteraction('Start new game', 'GameManager', { gameType });
     
     setCurrentGameType(gameType);
@@ -132,7 +197,7 @@ export const GameManager: React.FC<GameManagerProps> = ({
     } catch (error) {
       logError(error as Error, 'GameManager.clearGameState', { gameType });
     }
-  }, []);
+  }, [gameState, isGameWon, score, moveCount, currentGameType]);
 
   const handleContinueGame = useCallback((gameType: GameType) => {
     logUserInteraction('Continue existing game', 'GameManager', { gameType });
@@ -168,18 +233,35 @@ export const GameManager: React.FC<GameManagerProps> = ({
   }, [currentGameType]);
 
   const handleGameWin = useCallback(() => {
+    const completedAt = new Date();
+    const duration = gameState ? completedAt.getTime() - gameState.timeStarted.getTime() : 0;
+    
     logUserInteraction('Game won', 'GameManager', {
       gameType: currentGameType,
       finalScore: score,
       totalMoves: moveCount,
+      duration,
       gameState: gameState ? {
         timeStarted: gameState.timeStarted,
-        duration: Date.now() - new Date(gameState.timeStarted).getTime()
+        duration
       } : null
     });
     
+    // Record game completion in statistics
+    if (gameState) {
+      const completionData: GameCompletionData = {
+        gameType: currentGameType,
+        won: true,
+        duration,
+        moves: moveCount,
+        score,
+        completedAt
+      };
+      
+      StatisticsManager.recordGameCompletion(completionData);
+    }
+    
     setIsGameWon(true);
-    // TODO: Update statistics when statistics system is implemented
   }, [currentGameType, score, moveCount, gameState]);
 
   const handleScoreChange = useCallback((newScore: number) => {

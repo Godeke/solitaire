@@ -1,0 +1,240 @@
+.statistics-display {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 24px;
+  margin: 16px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.statistics-display.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  color: #6c757d;
+}
+
+.statistics-header {
+  margin-bottom: 24px;
+}
+
+.statistics-header h3 {
+  margin: 0 0 16px 0;
+  color: #2c3e50;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.game-selector {
+  display: flex;
+  gap: 4px;
+  background: #e9ecef;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.game-tab {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  color: #6c757d;
+}
+
+.game-tab:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.5);
+  color: #495057;
+}
+
+.game-tab.active {
+  background: #fff;
+  color: #2c3e50;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.game-tab.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.statistics-content {
+  margin-bottom: 24px;
+}
+
+.statistics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 24px;
+}
+
+.statistics-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.statistics-section h4 {
+  margin: 0 0 16px 0;
+  color: #2c3e50;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 8px;
+}
+
+.statistic-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f8f9fa;
+}
+
+.statistic-item:last-child {
+  border-bottom: none;
+}
+
+.statistic-label {
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.statistic-value {
+  color: #2c3e50;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.statistics-actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 16px;
+  border-top: 1px solid #e9ecef;
+}
+
+.reset-button {
+  padding: 10px 20px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.reset-button:hover {
+  background: #c82333;
+}
+
+.no-statistics {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6c757d;
+}
+
+.no-statistics p {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+/* Reset confirmation dialog */
+.reset-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.reset-confirm-dialog {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.reset-confirm-dialog h4 {
+  margin: 0 0 16px 0;
+  color: #2c3e50;
+  font-size: 1.2rem;
+}
+
+.reset-confirm-dialog p {
+  margin: 0 0 24px 0;
+  color: #6c757d;
+  line-height: 1.5;
+}
+
+.reset-confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.confirm-button {
+  padding: 10px 20px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.confirm-button:hover {
+  background: #c82333;
+}
+
+.cancel-button {
+  padding: 10px 20px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.cancel-button:hover {
+  background: #5a6268;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .statistics-display {
+    padding: 16px;
+    margin: 8px 0;
+  }
+  
+  .statistics-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .game-selector {
+    flex-direction: column;
+  }
+  
+  .game-tab {
+    text-align: center;
+  }
+  
+  .reset-confirm-dialog {
+    margin: 16px;
+  }
+}

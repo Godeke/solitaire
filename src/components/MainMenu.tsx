@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GameStateManager } from '../utils/GameStateManager';
+import { StatisticsDisplay } from './StatisticsDisplay';
 import { logUserInteraction, logComponentMount, logComponentUnmount } from '../utils/RendererLogger';
 import './MainMenu.css';
 
@@ -52,6 +53,8 @@ export const MainMenu: React.FC<MainMenuProps> = ({
   onContinueGame,
   className = ''
 }) => {
+  const [showStatistics, setShowStatistics] = useState(false);
+
   // Component lifecycle logging
   useEffect(() => {
     logComponentMount('MainMenu', {});
@@ -66,6 +69,17 @@ export const MainMenu: React.FC<MainMenuProps> = ({
   const handleContinueGame = (gameType: GameType) => {
     logUserInteraction('Continue game from menu', 'MainMenu', { gameType });
     onContinueGame(gameType);
+  };
+
+  const handleToggleStatistics = () => {
+    logUserInteraction('Toggle statistics display', 'MainMenu', { showStatistics: !showStatistics });
+    setShowStatistics(!showStatistics);
+  };
+
+  const handleStatisticsReset = () => {
+    // Force re-render by toggling statistics view
+    setShowStatistics(false);
+    setTimeout(() => setShowStatistics(true), 100);
   };
 
   const renderGameCard = (variant: GameVariant) => {
@@ -139,6 +153,23 @@ export const MainMenu: React.FC<MainMenuProps> = ({
       <div className="game-selection" data-testid="game-selection">
         {GAME_VARIANTS.map(renderGameCard)}
       </div>
+
+      <div className="menu-actions">
+        <button
+          className="statistics-toggle"
+          onClick={handleToggleStatistics}
+          data-testid="statistics-toggle"
+        >
+          {showStatistics ? 'Hide Statistics' : 'Show Statistics'}
+        </button>
+      </div>
+
+      {showStatistics && (
+        <StatisticsDisplay 
+          onResetStatistics={handleStatisticsReset}
+          data-testid="statistics-section"
+        />
+      )}
 
       <div className="menu-footer">
         <p className="version-info">Version 1.0.0</p>
