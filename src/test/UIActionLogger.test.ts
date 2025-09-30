@@ -4,6 +4,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+
+// Unmock UIActionLogger for this test file
+vi.unmock('../utils/UIActionLogger');
+
 import { UIActionLogger } from '../utils/UIActionLogger';
 import { Card } from '../utils/Card';
 import { GameState, Position } from '../types/card';

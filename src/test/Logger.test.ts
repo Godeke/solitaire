@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Unmock RendererLogger for this test file
+vi.unmock('../utils/RendererLogger');
+
 import { RendererLogger, LogLevel } from '../utils/RendererLogger';
 
 // Mock the window.electronAPI
