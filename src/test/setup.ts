@@ -266,41 +266,354 @@ vi.mock('../../utils/UIActionLogger', () => createUIActionLoggerMock());
 vi.mock('../../../utils/UIActionLogger', () => createUIActionLoggerMock());
 
 // Mock framer-motion to avoid animation issues in tests
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: vi.fn(({ children, ...props }) => {
-      const React = require('react');
-      // Filter out framer-motion specific props to avoid React warnings
-      const { animate, initial, transition, whileHover, whileTap, ...domProps } = props;
-      return React.createElement('div', domProps, children);
-    })
-  },
-  AnimatePresence: vi.fn(({ children }) => {
-    const React = require('react');
-    return React.createElement('div', {}, children);
-  })
-}));
+vi.mock('framer-motion', () => {
+  const React = require('react');
+  
+  // List of framer-motion specific props to filter out
+  const framerMotionProps = [
+    'animate', 'initial', 'exit', 'transition', 'variants',
+    'whileHover', 'whileTap', 'whileDrag', 'whileFocus', 'whileInView',
+    'drag', 'dragConstraints', 'dragElastic', 'dragMomentum', 'dragTransition',
+    'layout', 'layoutId', 'layoutDependency', 'layoutScroll',
+    'onAnimationStart', 'onAnimationComplete', 'onUpdate',
+    'onDrag', 'onDragStart', 'onDragEnd', 'onDirectionLock',
+    'onHoverStart', 'onHoverEnd', 'onTap', 'onTapStart', 'onTapCancel',
+    'onFocus', 'onBlur', 'onViewportEnter', 'onViewportLeave',
+    'transformTemplate', 'custom', 'inherit'
+  ];
+
+  // Helper function to filter out framer-motion props
+  const filterFramerProps = (props: any) => {
+    const filteredProps = { ...props };
+    framerMotionProps.forEach(prop => {
+      delete filteredProps[prop];
+    });
+    return filteredProps;
+  };
+
+  // Create mock motion components for common HTML elements
+  const createMotionComponent = (element: string) => 
+    vi.fn(({ children, ...props }) => {
+      const filteredProps = filterFramerProps(props);
+      return React.createElement(element, filteredProps, children);
+    });
+
+  return {
+    motion: {
+      div: createMotionComponent('div'),
+      span: createMotionComponent('span'),
+      button: createMotionComponent('button'),
+      img: createMotionComponent('img'),
+      section: createMotionComponent('section'),
+      article: createMotionComponent('article'),
+      header: createMotionComponent('header'),
+      footer: createMotionComponent('footer'),
+      nav: createMotionComponent('nav'),
+      aside: createMotionComponent('aside'),
+      main: createMotionComponent('main'),
+      p: createMotionComponent('p'),
+      h1: createMotionComponent('h1'),
+      h2: createMotionComponent('h2'),
+      h3: createMotionComponent('h3'),
+      h4: createMotionComponent('h4'),
+      h5: createMotionComponent('h5'),
+      h6: createMotionComponent('h6'),
+      ul: createMotionComponent('ul'),
+      ol: createMotionComponent('ol'),
+      li: createMotionComponent('li'),
+      form: createMotionComponent('form'),
+      input: createMotionComponent('input'),
+      textarea: createMotionComponent('textarea'),
+      select: createMotionComponent('select'),
+      option: createMotionComponent('option'),
+      label: createMotionComponent('label'),
+      fieldset: createMotionComponent('fieldset'),
+      legend: createMotionComponent('legend')
+    },
+    AnimatePresence: vi.fn(({ children, mode, initial, onExitComplete, ...props }) => {
+      // Filter out AnimatePresence specific props
+      const filteredProps = filterFramerProps(props);
+      return React.createElement('div', filteredProps, children);
+    }),
+    useAnimation: vi.fn(() => ({
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn(),
+      set: vi.fn(),
+      mount: vi.fn(),
+      unmount: vi.fn()
+    })),
+    useMotionValue: vi.fn((initialValue) => ({
+      get: vi.fn(() => initialValue),
+      set: vi.fn(),
+      onChange: vi.fn(),
+      destroy: vi.fn()
+    })),
+    useTransform: vi.fn(() => ({
+      get: vi.fn(() => 0),
+      set: vi.fn(),
+      onChange: vi.fn(),
+      destroy: vi.fn()
+    })),
+    useSpring: vi.fn((value) => ({
+      get: vi.fn(() => value),
+      set: vi.fn(),
+      onChange: vi.fn(),
+      destroy: vi.fn()
+    })),
+    useDragControls: vi.fn(() => ({
+      start: vi.fn(),
+      componentControls: new Set()
+    })),
+    useAnimationControls: vi.fn(() => ({
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn(),
+      set: vi.fn(),
+      mount: vi.fn(),
+      unmount: vi.fn()
+    })),
+    // Mock common animation variants
+    Variants: {},
+    // Mock easing functions
+    easeIn: 'easeIn',
+    easeOut: 'easeOut',
+    easeInOut: 'easeInOut',
+    linear: 'linear',
+    anticipate: 'anticipate',
+    backIn: 'backIn',
+    backOut: 'backOut',
+    backInOut: 'backInOut',
+    bounceIn: 'bounceIn',
+    bounceOut: 'bounceOut',
+    bounceInOut: 'bounceInOut',
+    circIn: 'circIn',
+    circOut: 'circOut',
+    circInOut: 'circInOut'
+  };
+});
 
 // Mock react-dnd HTML5Backend for testing
 vi.mock('react-dnd-html5-backend', () => ({
   HTML5Backend: vi.fn(() => ({
     setup: vi.fn(),
     teardown: vi.fn(),
-    connectDragSource: vi.fn(),
-    connectDropTarget: vi.fn(),
-    connectDragPreview: vi.fn()
+    connectDragSource: vi.fn((sourceId, node, options) => {
+      // Return a function that can be called to disconnect
+      return vi.fn();
+    }),
+    connectDropTarget: vi.fn((targetId, node, options) => {
+      // Return a function that can be called to disconnect
+      return vi.fn();
+    }),
+    connectDragPreview: vi.fn((sourceId, node, options) => {
+      // Return a function that can be called to disconnect
+      return vi.fn();
+    }),
+    canDragSource: vi.fn(() => true),
+    canDropOnTarget: vi.fn(() => true),
+    isDragging: vi.fn(() => false),
+    isOverTarget: vi.fn(() => false),
+    getDropResult: vi.fn(() => null),
+    didDrop: vi.fn(() => false)
   }))
 }));
 
-// Mock react-dnd hooks
-vi.mock('react-dnd', () => ({
-  useDrag: vi.fn(() => [{ isDragging: false }, vi.fn(), vi.fn()]),
-  useDrop: vi.fn(() => [{ isOver: false }, vi.fn()]),
-  DndProvider: vi.fn(({ children }) => {
-    const React = require('react');
-    return React.createElement('div', {}, children);
-  })
-}));
+// Mock react-dnd hooks with comprehensive behavior
+vi.mock('react-dnd', () => {
+  const React = require('react');
+  
+  // Mock state for drag and drop operations
+  let mockDragState = {
+    isDragging: false,
+    canDrag: true,
+    item: null,
+    itemType: null,
+    draggedId: null
+  };
+
+  let mockDropState = {
+    isOver: false,
+    isOverCurrent: false,
+    canDrop: true,
+    item: null,
+    itemType: null,
+    dropResult: null
+  };
+
+  return {
+    // Enhanced useDrag hook
+    useDrag: vi.fn((spec) => {
+      const dragRef = vi.fn((node) => {
+        if (node && typeof node.setAttribute === 'function') {
+          // Simulate connecting the drag source
+          node.setAttribute('data-testid', 'drag-source');
+          node.draggable = true;
+        }
+      });
+
+      const previewRef = vi.fn((node) => {
+        if (node && typeof node.setAttribute === 'function') {
+          // Simulate connecting the drag preview
+          node.setAttribute('data-testid', 'drag-preview');
+        }
+      });
+
+      // Create a mock monitor for the collect function
+      const mockDragMonitor = {
+        isDragging: vi.fn(() => mockDragState.isDragging),
+        canDrag: vi.fn(() => mockDragState.canDrag),
+        getItem: vi.fn(() => mockDragState.item),
+        getItemType: vi.fn(() => mockDragState.itemType),
+        getDropResult: vi.fn(() => null),
+        didDrop: vi.fn(() => false),
+        getInitialClientOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getInitialSourceClientOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getClientOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getSourceClientOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getDifferenceFromInitialOffset: vi.fn(() => ({ x: 0, y: 0 }))
+      };
+
+      // Mock collected props based on spec
+      const collected = spec?.collect ? spec.collect(mockDragMonitor) : {
+        isDragging: mockDragState.isDragging,
+        canDrag: mockDragState.canDrag,
+        item: mockDragState.item,
+        itemType: mockDragState.itemType,
+        draggedId: mockDragState.draggedId
+      };
+
+      return [collected, dragRef, previewRef];
+    }),
+
+    // Enhanced useDrop hook
+    useDrop: vi.fn((spec) => {
+      const dropRef = vi.fn((node) => {
+        if (node && typeof node.setAttribute === 'function') {
+          // Simulate connecting the drop target
+          node.setAttribute('data-testid', 'drop-target');
+          node.setAttribute('data-accepts', Array.isArray(spec?.accept) ? spec.accept.join(',') : spec?.accept || '');
+        }
+      });
+
+      // Create a mock monitor for the collect function
+      const mockDropMonitor = {
+        isOver: vi.fn(() => mockDropState.isOver),
+        isOverCurrent: vi.fn(() => mockDropState.isOverCurrent),
+        canDrop: vi.fn(() => mockDropState.canDrop),
+        getItem: vi.fn(() => mockDropState.item),
+        getItemType: vi.fn(() => mockDropState.itemType),
+        getDropResult: vi.fn(() => mockDropState.dropResult),
+        didDrop: vi.fn(() => false),
+        getInitialClientOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getInitialSourceClientOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getClientOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getSourceClientOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getDifferenceFromInitialOffset: vi.fn(() => ({ x: 0, y: 0 }))
+      };
+
+      // Mock collected props based on spec
+      const collected = spec?.collect ? spec.collect(mockDropMonitor) : {
+        isOver: mockDropState.isOver,
+        isOverCurrent: mockDropState.isOverCurrent,
+        canDrop: mockDropState.canDrop,
+        item: mockDropState.item,
+        itemType: mockDropState.itemType,
+        dropResult: mockDropState.dropResult
+      };
+
+      return [collected, dropRef];
+    }),
+
+    // Enhanced DndProvider component
+    DndProvider: vi.fn(({ children, backend, context, options, debugMode, ...props }) => {
+      // Create a provider context that can be used by child components
+      return React.createElement('div', {
+        'data-testid': 'dnd-provider',
+        'data-backend': backend?.name || 'HTML5Backend',
+        ...props
+      }, children);
+    }),
+
+    // Mock DndContext for advanced usage
+    useDndContext: vi.fn(() => ({
+      dragDropManager: {
+        getBackend: vi.fn(() => ({
+          setup: vi.fn(),
+          teardown: vi.fn(),
+          connectDragSource: vi.fn(),
+          connectDropTarget: vi.fn(),
+          connectDragPreview: vi.fn()
+        })),
+        getMonitor: vi.fn(() => ({
+          isDragging: vi.fn(() => mockDragState.isDragging),
+          canDragSource: vi.fn(() => mockDragState.canDrag),
+          canDropOnTarget: vi.fn(() => mockDropState.canDrop),
+          getItem: vi.fn(() => mockDragState.item),
+          getItemType: vi.fn(() => mockDragState.itemType),
+          getDropResult: vi.fn(() => mockDropState.dropResult),
+          didDrop: vi.fn(() => false),
+          isOverTarget: vi.fn(() => mockDropState.isOver),
+          getTargetIds: vi.fn(() => []),
+          getSourceId: vi.fn(() => null)
+        })),
+        getRegistry: vi.fn(() => ({
+          addSource: vi.fn(),
+          addTarget: vi.fn(),
+          removeSource: vi.fn(),
+          removeTarget: vi.fn()
+        }))
+      }
+    })),
+
+    // Mock drag layer hook for custom drag layers
+    useDragLayer: vi.fn((collect) => {
+      const monitor = {
+        isDragging: vi.fn(() => mockDragState.isDragging),
+        getItem: vi.fn(() => mockDragState.item),
+        getItemType: vi.fn(() => mockDragState.itemType),
+        getCurrentOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getInitialClientOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getInitialSourceClientOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getClientOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getDifferenceFromInitialOffset: vi.fn(() => ({ x: 0, y: 0 })),
+        getSourceClientOffset: vi.fn(() => ({ x: 0, y: 0 }))
+      };
+
+      return collect ? collect(monitor) : {
+        isDragging: mockDragState.isDragging,
+        item: mockDragState.item,
+        itemType: mockDragState.itemType,
+        currentOffset: { x: 0, y: 0 }
+      };
+    }),
+
+    // Utility functions for testing
+    __setMockDragState: (newState: Partial<typeof mockDragState>) => {
+      mockDragState = { ...mockDragState, ...newState };
+    },
+
+    __setMockDropState: (newState: Partial<typeof mockDropState>) => {
+      mockDropState = { ...mockDropState, ...newState };
+    },
+
+    __resetMockState: () => {
+      mockDragState = {
+        isDragging: false,
+        canDrag: true,
+        item: null,
+        itemType: null,
+        draggedId: null
+      };
+      mockDropState = {
+        isOver: false,
+        isOverCurrent: false,
+        canDrop: true,
+        item: null,
+        itemType: null,
+        dropResult: null
+      };
+    }
+  };
+});
 
 // Create a comprehensive AudioManager mock with proper state management
 const MockAudioManager = vi.fn().mockImplementation((config = {}) => {

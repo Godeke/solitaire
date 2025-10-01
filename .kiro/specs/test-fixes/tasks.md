@@ -97,14 +97,23 @@
     - Fix component rendering with enhanced mocks
     - _Requirements: 4.3, 4.4_
 
-- [ ] 5. Enhance React library mocks
-  - [ ] 5.1 Improve framer-motion mock implementation
+- [x] 5. Enhance React library mocks
+
+
+
+
+
+  - [x] 5.1 Improve framer-motion mock implementation
+
+
     - Filter out framer-motion specific props to avoid React warnings
     - Maintain proper component structure for testing
     - Preserve children rendering behavior
     - _Requirements: 5.1, 5.2_
 
-  - [ ] 5.2 Improve react-dnd mock implementation
+  - [x] 5.2 Improve react-dnd mock implementation
+
+
     - Ensure drag and drop hooks return consistent mock values
     - Provide proper mock behavior for DndProvider component
     - Fix any remaining drag-drop integration issues
