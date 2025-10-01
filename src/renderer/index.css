@@ -1,3 +1,9 @@
+:root {
+  --card-width: 80px;
+  --card-height: calc(var(--card-width) * 1.4);
+  --card-border-radius: 8px;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -15,4 +21,28 @@ body {
 #root {
   width: 100%;
   height: 100vh;
+}
+
+@media (max-width: 1200px) {
+  :root {
+    --card-width: 70px;
+  }
+}
+
+@media (max-width: 900px) {
+  :root {
+    --card-width: 60px;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --card-width: 50px;
+  }
+}
+
+@media (max-width: 420px) {
+  :root {
+    --card-width: 44px;
+  }
 }
