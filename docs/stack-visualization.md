@@ -16,7 +16,7 @@ The Klondike solitaire game now includes visual indicators to show how many card
 - Shows up to 3 fanned card outlines behind the top card, spreading to the right
 - Cards are positioned with increasing horizontal offset and slight rotation for realistic fanning
 - Displays a count badge when there are more than 4 cards (showing "+X" format)
-- Stack cards have a gray gradient background with subtle shadows (representing previous cards)
+- Stack cards have a light blue-gray gradient background with subtle shadows and white borders for better visibility
 - Only the top card is interactive and draggable
 - Fanning effect mimics real solitaire card layout
 

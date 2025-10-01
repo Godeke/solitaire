@@ -159,10 +159,11 @@
 
 /* Waste cards show a subtle card back pattern */
 .waste-stack-card {
-  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
-  opacity: 0.6;
+  background: linear-gradient(135deg, #8b9dc3 0%, #6b7db0 100%);
+  opacity: 0.8;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .stock-stack-count {

@@ -13,8 +13,9 @@ The waste pile in Klondike solitaire now features realistic card fanning that sp
 - Up to 3 visible fanned cards behind the top card
 
 ### Enhanced Styling
-- Subtle shadows (0 2px 8px rgba(0, 0, 0, 0.4)) for depth
-- Gray gradient background for fanned cards
+- Subtle shadows (0 2px 8px rgba(0, 0, 0, 0.3)) for depth
+- Light blue-gray gradient background for better visibility against green felt
+- White border highlights for enhanced contrast
 - Smooth transitions for all transformations
 - Increased waste pile width to accommodate fanned layout
 
