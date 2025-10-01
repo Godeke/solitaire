@@ -155,4 +155,55 @@ describe('KlondikeGameBoard', () => {
       expect(mockOnMoveCount).toHaveBeenCalledWith(0);
     });
   });
+
+  it('renders stack visualization for stock pile', () => {
+    render(
+      <KlondikeGameBoard
+        onGameWin={mockOnGameWin}
+        onScoreChange={mockOnScoreChange}
+        onMoveCount={mockOnMoveCount}
+      />
+    );
+
+    // Stock pile should have stack visualization elements
+    const stockStack = document.querySelector('.stock-stack');
+    expect(stockStack).toBeInTheDocument();
+
+    // Should have stack indicators when there are multiple cards
+    const stockStackIndicators = document.querySelector('.stock-stack-indicators');
+    if (stockStackIndicators) {
+      // If indicators exist, there should be stack cards
+      const stackCards = document.querySelectorAll('.stock-stack-card');
+      expect(stackCards.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('renders stack visualization for waste pile when cards are dealt', async () => {
+    render(
+      <KlondikeGameBoard
+        onGameWin={mockOnGameWin}
+        onScoreChange={mockOnScoreChange}
+        onMoveCount={mockOnMoveCount}
+      />
+    );
+
+    // Click on stock to deal cards to waste
+    const stockCards = screen.getAllByTestId(/card-.*-stock/);
+    if (stockCards.length > 0) {
+      fireEvent.click(stockCards[0]);
+      
+      await waitFor(() => {
+        // After dealing, waste stack should exist and show stack indicators
+        const wasteStack = document.querySelector('.waste-stack');
+        expect(wasteStack).toBeInTheDocument();
+        
+        // Should have waste stack indicators when multiple cards are dealt
+        const wasteStackIndicators = document.querySelector('.waste-stack-indicators');
+        if (wasteStackIndicators) {
+          const stackCards = document.querySelectorAll('.waste-stack-card');
+          expect(stackCards.length).toBeGreaterThan(0);
+        }
+      });
+    }
+  });
 });

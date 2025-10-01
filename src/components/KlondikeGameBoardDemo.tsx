@@ -76,9 +76,10 @@ export const KlondikeGameBoardDemo: React.FC = () => {
           <ul>
             <li><strong>Goal:</strong> Move all cards to the foundation piles (Ace to King, same suit)</li>
             <li><strong>Tableau:</strong> Build down in alternating colors (Red on Black, Black on Red)</li>
-            <li><strong>Stock:</strong> Click to deal cards to the waste pile</li>
+            <li><strong>Stock:</strong> Click to deal cards to the waste pile (draws 3 cards at once)</li>
             <li><strong>Foundation:</strong> Build up from Ace to King in the same suit</li>
             <li><strong>Moves:</strong> Drag cards between piles or click to select and highlight valid moves</li>
+            <li><strong>Stack Visualization:</strong> Stock pile shows stacked indicators, waste pile fans cards to the right like real solitaire</li>
           </ul>
         </div>
 
@@ -133,6 +134,10 @@ export const KlondikeGameBoardDemo: React.FC = () => {
             <div className="feature-item">
               <h4>🏆 Win Detection</h4>
               <p>Automatic win condition checking with celebration effects</p>
+            </div>
+            <div className="feature-item">
+              <h4>📚 Stack Visualization</h4>
+              <p>Stock pile shows stacked indicators, waste pile fans cards to the right with realistic rotation and shadows</p>
             </div>
           </div>
         </div>

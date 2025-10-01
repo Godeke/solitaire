@@ -34,7 +34,7 @@ const GAME_VARIANTS: GameVariant[] = [
     id: 'spider',
     name: 'Spider',
     description: 'Build sequences in the same suit across 10 tableau columns.',
-    isAvailable: false,
+    isAvailable: true,
     features: ['10 tableau columns', 'Same suit sequences', 'Multiple difficulty levels'],
     difficulty: 'Hard'
   },
@@ -42,7 +42,7 @@ const GAME_VARIANTS: GameVariant[] = [
     id: 'freecell',
     name: 'FreeCell',
     description: 'Strategic solitaire with 4 free cells and open tableau.',
-    isAvailable: false,
+    isAvailable: true,
     features: ['4 free cells', 'All cards visible', 'Strategic gameplay'],
     difficulty: 'Medium'
   }

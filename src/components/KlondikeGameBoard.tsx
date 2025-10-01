@@ -383,18 +383,43 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
   const renderStockPile = () => {
     const stock = gameState.stock || [];
     const topCard = stock.length > 0 ? stock[stock.length - 1] : null;
+    const stackDepth = stock.length;
 
     return (
       <div className="stock-pile">
         {topCard ? (
-          <CardRenderer
-            key={topCard.id}
-            card={topCard}
-            onCardMove={handleCardMove}
-            onCardClick={handleCardClick}
-            isValidDropTarget={false}
-            className="stock-card"
-          />
+          <div className="stock-stack">
+            {/* Render stack indicators for cards underneath */}
+            {stackDepth > 1 && (
+              <div className="stock-stack-indicators">
+                {Array.from({ length: Math.min(stackDepth - 1, 3) }, (_, index) => (
+                  <div
+                    key={`stock-stack-${index}`}
+                    className="stock-stack-card"
+                    style={{
+                      transform: `translate(${(index + 1) * -2}px, ${(index + 1) * -2}px)`,
+                      zIndex: index
+                    }}
+                  />
+                ))}
+                {stackDepth > 4 && (
+                  <div className="stock-stack-count">
+                    {stackDepth}
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Render the top card */}
+            <CardRenderer
+              key={topCard.id}
+              card={topCard}
+              onCardMove={handleCardMove}
+              onCardClick={handleCardClick}
+              isValidDropTarget={false}
+              className="stock-card"
+              style={{ zIndex: stackDepth }}
+            />
+          </div>
         ) : (
           <div className="empty-stock" onClick={() => {
             // Reset waste to stock when stock is empty
@@ -413,18 +438,44 @@ export const KlondikeGameBoard: React.FC<KlondikeGameBoardProps> = ({
   const renderWastePile = () => {
     const waste = gameState.waste || [];
     const topCard = waste.length > 0 ? waste[waste.length - 1] : null;
+    const stackDepth = waste.length;
 
     return (
       <div className="waste-pile">
         {topCard ? (
-          <CardRenderer
-            key={topCard.id}
-            card={topCard}
-            onCardMove={handleCardMove}
-            onCardClick={handleCardClick}
-            isValidDropTarget={false}
-            className={`waste-card ${selectedCard?.id === topCard.id ? 'selected' : ''}`}
-          />
+          <div className="waste-stack">
+            {/* Render stack indicators for cards underneath, fanned to the right */}
+            {stackDepth > 1 && (
+              <div className="waste-stack-indicators">
+                {Array.from({ length: Math.min(stackDepth - 1, 3) }, (_, index) => (
+                  <div
+                    key={`stack-${index}`}
+                    className="waste-stack-card"
+                    style={{
+                      transform: `translateX(${(index + 1) * 18}px) rotate(${(index + 1) * 2}deg)`,
+                      zIndex: index,
+                      transformOrigin: 'bottom left'
+                    }}
+                  />
+                ))}
+                {stackDepth > 4 && (
+                  <div className="waste-stack-count">
+                    +{stackDepth - 1}
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Render the top card */}
+            <CardRenderer
+              key={topCard.id}
+              card={topCard}
+              onCardMove={handleCardMove}
+              onCardClick={handleCardClick}
+              isValidDropTarget={false}
+              className={`waste-card ${selectedCard?.id === topCard.id ? 'selected' : ''}`}
+              style={{ zIndex: stackDepth }}
+            />
+          </div>
         ) : (
           <div className="empty-waste">
             <div className="empty-waste-content">Waste</div>

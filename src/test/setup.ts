@@ -268,7 +268,7 @@ vi.mock('../../../utils/UIActionLogger', () => createUIActionLoggerMock());
 // Mock framer-motion to avoid animation issues in tests
 vi.mock('framer-motion', () => {
   const React = require('react');
-  
+
   // List of framer-motion specific props to filter out
   const framerMotionProps = [
     'animate', 'initial', 'exit', 'transition', 'variants',
@@ -292,7 +292,7 @@ vi.mock('framer-motion', () => {
   };
 
   // Create mock motion components for common HTML elements
-  const createMotionComponent = (element: string) => 
+  const createMotionComponent = (element: string) =>
     vi.fn(({ children, ...props }) => {
       const filteredProps = filterFramerProps(props);
       return React.createElement(element, filteredProps, children);
@@ -420,7 +420,7 @@ vi.mock('react-dnd-html5-backend', () => ({
 // Mock react-dnd hooks with comprehensive behavior
 vi.mock('react-dnd', () => {
   const React = require('react');
-  
+
   // Mock state for drag and drop operations
   let mockDragState = {
     isDragging: false,
@@ -626,17 +626,17 @@ const MockAudioManager = vi.fn().mockImplementation((config = {}) => {
 
   const instance = {
     playSound: vi.fn().mockResolvedValue(undefined),
-    setEnabled: vi.fn((enabled) => { 
-      mockConfig.enabled = enabled; 
+    setEnabled: vi.fn((enabled) => {
+      mockConfig.enabled = enabled;
     }),
-    setVolume: vi.fn((volume) => { 
-      mockConfig.volume = Math.max(0, Math.min(1, volume)); 
+    setVolume: vi.fn((volume) => {
+      mockConfig.volume = Math.max(0, Math.min(1, volume));
     }),
     getVolume: vi.fn(() => mockConfig.volume),
     isEnabled: vi.fn(() => mockConfig.enabled),
-    toggleAudio: vi.fn(() => { 
-      mockConfig.enabled = !mockConfig.enabled; 
-      return mockConfig.enabled; 
+    toggleAudio: vi.fn(() => {
+      mockConfig.enabled = !mockConfig.enabled;
+      return mockConfig.enabled;
     }),
     getConfig: vi.fn(() => ({ ...mockConfig })),
     stopAllSounds: vi.fn(),

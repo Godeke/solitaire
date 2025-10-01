@@ -183,8 +183,8 @@ export class SpiderEngine extends BaseGameEngine {
             cardsToMove: cardsToMove.map(c => ({ id: c.id, suit: c.suit, rank: c.rank }))
         });
 
-        // Remove cards from source
-        this.removeCardsFromPosition(from, cardsToMove.length);
+        // Remove the specific cards from source (not just a count from the end)
+        this.removeSpecificCardsFromPosition(from, cardsToMove);
 
         // Add cards to destination
         this.addCardsToPosition(to, cardsToMove);
@@ -632,6 +632,72 @@ export class SpiderEngine extends BaseGameEngine {
      */
     getCompletedSequences(): Card[][] {
         return [...this.completedSequences];
+    }
+
+    /**
+     * Remove specific cards from a position (fixes the card duplication bug)
+     * Unlike the base removeCardsFromPosition which removes from the end,
+     * this removes the exact cards that were identified to move
+     */
+    private removeSpecificCardsFromPosition(position: Position, cardsToRemove: Card[]): void {
+        if (position.zone !== 'tableau') {
+            // For non-tableau zones, fall back to the base method
+            this.removeCardsFromPosition(position, cardsToRemove.length);
+            return;
+        }
+
+        const column = this.gameState.tableau[position.index];
+        const cardIdsToRemove = new Set(cardsToRemove.map(card => card.id));
+
+        // Find the starting index of the cards to remove
+        let startIndex = -1;
+        for (let i = 0; i < column.length; i++) {
+            if (cardIdsToRemove.has(column[i].id)) {
+                startIndex = i;
+                break;
+            }
+        }
+
+        if (startIndex === -1) {
+            logGameAction('Warning: Cards to remove not found in source column', 'spider', {
+                position,
+                cardsToRemove: cardsToRemove.map(c => ({ id: c.id, suit: c.suit, rank: c.rank }))
+            });
+            return;
+        }
+
+        // Verify that all cards to remove are consecutive starting from startIndex
+        let allCardsFound = true;
+        for (let i = 0; i < cardsToRemove.length; i++) {
+            if (startIndex + i >= column.length || 
+                column[startIndex + i].id !== cardsToRemove[i].id) {
+                allCardsFound = false;
+                break;
+            }
+        }
+
+        if (!allCardsFound) {
+            logGameAction('Warning: Cards to remove are not consecutive in source column', 'spider', {
+                position,
+                startIndex,
+                cardsToRemove: cardsToRemove.map(c => ({ id: c.id, suit: c.suit, rank: c.rank })),
+                columnCards: column.map(c => ({ id: c.id, suit: c.suit, rank: c.rank }))
+            });
+            // Fall back to base method as safety measure
+            this.removeCardsFromPosition(position, cardsToRemove.length);
+            return;
+        }
+
+        // Remove the specific cards
+        const removedCards = column.splice(startIndex, cardsToRemove.length);
+
+        logGameAction('Specific cards removed from Spider column', 'spider', {
+            position,
+            startIndex,
+            removedCount: removedCards.length,
+            removedCards: removedCards.map(c => ({ id: c.id, suit: c.suit, rank: c.rank })),
+            remainingCards: column.length
+        });
     }
 
     /**

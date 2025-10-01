@@ -105,7 +105,7 @@
   border-radius: var(--card-border-radius, 8px);
 }
 
-.stock-pile, .waste-pile {
+.stock-pile {
   width: var(--card-width, 80px);
   height: var(--card-height, 112px);
   position: relative;
@@ -114,6 +114,89 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.waste-pile {
+  width: calc(var(--card-width, 80px) + 60px); /* Extra width for fanned cards with rotation */
+  height: var(--card-height, 112px);
+  position: relative;
+  border-radius: var(--card-border-radius, 8px);
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* Align to left for fanning effect */
+}
+
+/* Stock and Waste pile stack visualization */
+.stock-stack, .waste-stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.stock-stack-indicators, .waste-stack-indicators {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.stock-stack-card, .waste-stack-card {
+  position: absolute;
+  width: var(--card-width, 80px);
+  height: var(--card-height, 112px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--card-border-radius, 8px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Stock cards are face down (blue back) */
+.stock-stack-card {
+  background: linear-gradient(135deg, #2c5aa0 0%, #1e3a8a 100%);
+}
+
+/* Waste cards show a subtle card back pattern */
+.waste-stack-card {
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+  opacity: 0.6;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.stock-stack-count {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 3px;
+  z-index: 100;
+  pointer-events: none;
+  min-width: 16px;
+  text-align: center;
+}
+
+.waste-stack-count {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 3px;
+  z-index: 100;
+  pointer-events: none;
+  min-width: 16px;
+  text-align: center;
+  /* Position relative to the rightmost fanned card */
+  transform: translateX(-60px);
 }
 
 .empty-stock, .empty-waste {
