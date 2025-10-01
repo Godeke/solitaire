@@ -131,8 +131,8 @@
 
 /* Free Cells */
 .freecell-slot {
-  width: 80px;
-  height: 110px;
+  width: var(--card-width, 80px);
+  height: var(--card-height, 112px);
   position: relative;
 }
 
@@ -140,7 +140,7 @@
   width: 100%;
   height: 100%;
   border: 2px dashed rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
+  border-radius: var(--card-border-radius, 8px);
   position: relative;
   transition: all 0.3s ease;
   display: flex;
@@ -181,7 +181,7 @@
 }
 
 .freecell-card {
-  width: 75px;
+  width: var(--card-width, 80px);
   transition: all 0.3s ease;
 }
 
@@ -193,8 +193,8 @@
 
 /* Foundation Piles */
 .foundation-pile {
-  width: 80px;
-  height: 110px;
+  width: var(--card-width, 80px);
+  height: var(--card-height, 112px);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -206,7 +206,7 @@
   width: 100%;
   height: 100%;
   border: 2px dashed rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
+  border-radius: var(--card-border-radius, 8px);
   position: relative;
   transition: all 0.3s ease;
   display: flex;
@@ -247,7 +247,7 @@
 }
 
 .foundation-card {
-  width: 75px;
+  width: var(--card-width, 80px);
   transition: all 0.3s ease;
 }
 
@@ -290,18 +290,19 @@
   padding: 0 10px;
 }
 
+
 .tableau-column {
   flex: 1;
   min-height: 400px;
-  max-width: 100px;
+  max-width: calc(var(--card-width, 80px) * 1.5);
   position: relative;
 }
 
 .tableau-drop-zone {
-  width: 85px;
-  min-height: 110px;
+  width: var(--card-width, 80px);
+  min-height: var(--card-height, 112px);
   border: 2px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: var(--card-border-radius, 8px);
   position: relative;
   transition: all 0.3s ease;
 }
@@ -329,7 +330,7 @@
 }
 
 .tableau-card {
-  width: 85px;
+  width: var(--card-width, 80px);
   left: 0;
   transition: all 0.3s ease;
 }
@@ -368,26 +369,13 @@
   .freecell-game-board {
     padding: 15px;
   }
-  
+
   .tableau-area {
     gap: 10px;
   }
-  
+
   .tableau-column {
-    max-width: 90px;
-  }
-  
-  .tableau-drop-zone, .tableau-card {
-    width: 75px;
-  }
-  
-  .freecell-slot, .foundation-pile {
-    width: 70px;
-    height: 95px;
-  }
-  
-  .freecell-card, .foundation-card {
-    width: 65px;
+    max-width: calc(var(--card-width, 80px) * 1.4);
   }
 }
 
@@ -417,22 +405,9 @@
   .tableau-area {
     gap: 8px;
   }
-  
+
   .tableau-column {
-    max-width: 80px;
-  }
-  
-  .tableau-drop-zone, .tableau-card {
-    width: 65px;
-  }
-  
-  .freecell-slot, .foundation-pile {
-    width: 60px;
-    height: 80px;
-  }
-  
-  .freecell-card, .foundation-card {
-    width: 55px;
+    max-width: calc(var(--card-width, 80px) * 1.3);
   }
 }
 
@@ -440,24 +415,11 @@
   .tableau-area {
     gap: 6px;
   }
-  
+
   .tableau-column {
-    max-width: 70px;
+    max-width: calc(var(--card-width, 80px) * 1.2);
   }
-  
-  .tableau-drop-zone, .tableau-card {
-    width: 55px;
-  }
-  
-  .freecell-slot, .foundation-pile {
-    width: 55px;
-    height: 75px;
-  }
-  
-  .freecell-card, .foundation-card {
-    width: 50px;
-  }
-  
+
   .game-stats {
     display: none; /* Hide on very small screens to save space */
   }

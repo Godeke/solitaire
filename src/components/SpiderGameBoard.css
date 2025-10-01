@@ -155,10 +155,10 @@
 
 /* Stock Pile */
 .stock-pile {
-  width: 80px;
-  height: 110px;
+  width: var(--card-width, 80px);
+  height: var(--card-height, 112px);
   position: relative;
-  border-radius: 8px;
+  border-radius: var(--card-border-radius, 8px);
   border: 2px dashed rgba(255, 255, 255, 0.3);
   display: flex;
   align-items: center;
@@ -171,7 +171,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: calc(var(--card-border-radius, 8px) - 2px);
   background: rgba(255, 255, 255, 0.1);
 }
 
@@ -194,15 +194,15 @@
 .tableau-column {
   flex: 1;
   min-height: 400px;
-  max-width: 90px;
+  max-width: calc(var(--card-width, 80px) * 1.35);
   position: relative;
 }
 
 .tableau-drop-zone {
-  width: 75px;
-  min-height: 110px;
+  width: var(--card-width, 80px);
+  min-height: var(--card-height, 112px);
   border: 2px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: var(--card-border-radius, 8px);
   position: relative;
   transition: all 0.3s ease;
 }
@@ -230,7 +230,7 @@
 }
 
 .tableau-card {
-  width: 75px;
+  width: var(--card-width, 80px);
   left: 0;
   transition: all 0.3s ease;
 }
@@ -269,22 +269,13 @@
   .spider-game-board {
     padding: 15px;
   }
-  
+
   .tableau-area {
     gap: 8px;
   }
-  
+
   .tableau-column {
-    max-width: 80px;
-  }
-  
-  .tableau-drop-zone, .tableau-card {
-    width: 65px;
-  }
-  
-  .stock-pile {
-    width: 70px;
-    height: 95px;
+    max-width: calc(var(--card-width, 80px) * 1.25);
   }
 }
 
@@ -307,20 +298,11 @@
   .tableau-area {
     gap: 6px;
   }
-  
+
   .tableau-column {
-    max-width: 70px;
+    max-width: calc(var(--card-width, 80px) * 1.2);
   }
-  
-  .tableau-drop-zone, .tableau-card {
-    width: 55px;
-  }
-  
-  .stock-pile {
-    width: 60px;
-    height: 80px;
-  }
-  
+
   .top-area {
     flex-direction: column;
     gap: 15px;
@@ -336,20 +318,11 @@
   .tableau-area {
     gap: 4px;
   }
-  
+
   .tableau-column {
-    max-width: 60px;
+    max-width: calc(var(--card-width, 80px) * 1.1);
   }
-  
-  .tableau-drop-zone, .tableau-card {
-    width: 50px;
-  }
-  
-  .stock-pile {
-    width: 55px;
-    height: 75px;
-  }
-  
+
   .completed-sequences {
     display: none; /* Hide on very small screens to save space */
   }
